@@ -1,11 +1,12 @@
 # Projeto de Machine Learning: VERIFICA.AI
 
-> **Disciplina:** Desenvolvimento Mobile / Inteligência Artificial
+> **Disciplina:** Desenvolvimento Mobile / Inteligência Artificial / Computação em Nuvem
 > **Professora:** Joelma Sartori
 > **Integrantes do Grupo:**
 > - Guilherme Matheus Andrade Gomes (RM: 25041)
 > - Kaue Costa Paixão (RM: 25116)
 > - Carlos Henrique Bertotti Mendes (RM: 25228)
+> - Marcelo Oliveira de Paula (RM: 25036)
 
 ---
 
