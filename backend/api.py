@@ -6,9 +6,10 @@ import joblib
 import json
 import logging
 import os
-from groq import Groq  # Importando a biblioteca oficial da Groq
+from datetime import datetime
+from typing import List, Dict, Optional
+from groq import Groq
 
-# Importando os SEUS módulos de Machine Learning
 from backend.buscar_noticias import buscar_noticias
 from backend.analisar_afirmacao import analisar_afirmacao
 
@@ -16,38 +17,52 @@ from backend.analisar_afirmacao import analisar_afirmacao
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
 
-app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="15.0")
+app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="20.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# =================================================================
-# 1. CONFIGURAÇÃO DA GROQ API (Velocidade Relâmpago + Llama 3)
-# =================================================================
-# Cole a sua chave da Groq aqui embaixo entre as aspas
 GROQ_API_KEY = "" 
 client = Groq(api_key=GROQ_API_KEY)
 
-# Usaremos o Llama 3 8B na Groq (ultra rápido e altamente inteligente)
 MODELO_GROQ = "openai/gpt-oss-120b"
-# Agente 1: Triagem de Contexto Detalhada (Padrão Google)
-instrucoes_triagem = """ Você é o VERIFICA.AI, um agente investigativo que prepara frases para um modelo matemático de checagem. Sua única função é garantir que a afirmação do usuário tenha CONTEXTO (local, época, sujeito) e esteja compreensível. Responda SEMPRE em formato JSON válido. Regras de Negócio: 1. Se o usuário cometeu erros de digitação graves ou a frase estiver confusa/fora do comum, mas você entendeu a intenção, corrija a ortografia e inclua a sugestão no formato: {"status": "precisa_contexto", "mensagem": "Você quis dizer '[frase corrigida]'? Por favor, confirme ou especifique melhor."} 2. Se faltar contexto geográfico ou temporal (ex: "A maconha é legalizada?"), responda: {"status": "precisa_contexto", "mensagem": "Pergunta curta pedindo o contexto faltante (ex: país ou estado)"} 3. Se a frase estiver completa, clara e pronta, responda: {"status": "pronto", "frase_limpa": "A frase corrigida, clara e com contexto para busca"} """
-# Agente 2: LIBERTO DO JSON! Agora ele foca 100% em ser eloquente, rico e analítico
-# Agente 2: Redação Fluida, Humana e Analítica
-instrucoes_resposta = """
-Você é o agente VERIFICA.AI, um jornalista investigativo e especialista em checagem de fatos.
+
+# --- Agente 1: Triagem Direta, Dedução Rápida e Bate-Papo ---
+instrucoes_triagem = """
+Você é o motor de triagem de dados do sistema VERIFICA.AI.
+Sua função é ler a nova mensagem do usuário junto com o histórico da conversa e classificar a intenção.
+Regras de Negócio:
+1. BATE-PAPO / MEMÓRIA: Se o usuário estiver apenas conversando, agradecendo, dizendo "olá", ou fazendo perguntas sobre o histórico (ex: "O que eu perguntei antes?"), NÃO acione a pesquisa. Responda diretamente: {"status": "conversa", "mensagem": "Sua resposta direta, séria e imparcial baseada no histórico."}
+2. CONTEXTO LIVRE E DEDUÇÃO INTELIGENTE: Se a frase for um boato/notícia para checar, deduza o contexto automaticamente a partir das mensagens anteriores ou do conhecimento geral sem fazer perguntas desnecessárias.
+3. Se a frase (boato/notícia) estiver compreensível, responda: {"status": "pronto", "frase_limpa": "A frase completa e deduzida para busca"}
+4. APENAS em casos extremos de texto ininteligível sobre uma notícia, responda: {"status": "precisa_contexto", "mensagem": "Por favor, reformule a frase."}
+PROIBIDO USAR EMOJIS ou clichês de IA. Responda SEMPRE em formato JSON válido.
+"""
+
+# --- Agente 2: Redação Jornalística e Imparcial ---
+data_hoje = datetime.now().strftime("%d/%m/%Y")
+
+instrucoes_resposta = f"""
+Você é o agente VERIFICA.AI, um especialista imparcial e objetivo em checagem de fatos.
 Sua missão é escrever um veredito final cruzando a matemática do modelo estatístico SVM com as notícias da web.
 
-REGRAS ESTABELECIDAS DE ESTILO E FORMATAÇÃO (CRÍTICO):
-1. PROIBIDO USAR TABELAS, listas longas ou subtítulos de marcação (como "### Análise" ou "### Limites").
-2. Escreva um texto corrido, fluido e elegante, dividido em no máximo 3 ou 4 parágrafos bem conectados e fáceis de ler.
-3. Esconda a "cara de IA": não seja robótico. Cite as fontes de forma orgânica no meio do texto (ex: "De acordo com levantamentos de portais como CNN e UOL...").
-4. Explique a probabilidade estatística do SVM de forma natural e didática, integrando esse dado à realidade dos fatos encontrados nas notícias.
-5. Se houver discrepância (ex: o modelo achou que era falso por causa do vocabulário, mas a notícia é verdadeira), explique o limite do sistema dentro da narrativa.
-6. Responda SEMPRE E APENAS em formato JSON válido, exatamente com a seguinte estrutura:
-{"texto_final": "O seu texto limpo, em prosa e com tom profissional aqui."}
+DATA ATUAL DO SISTEMA: {data_hoje}
+
+REGRAS DE REDAÇÃO E INTERPRETAÇÃO:
+1. IMPARCIALIDADE ABSOLUTA: Seja direto, sério e estritamente focado nos fatos e nos dados coletados. Não emita juízo de valor e não seja informal.
+2. PROIBIDO EMOJIS: Não utilize nenhum emoji, emoticon ou símbolo expressivo em nenhuma parte do texto.
+3. ZERO "CARA DE IA": Nunca utilize frases clichês de inteligência artificial (ex: "Como um modelo de linguagem...", "Olá, estou aqui para ajudar..."). Escreva com a firmeza de um jornalista investigativo humano.
+4. ESTRUTURA: Escreva um texto corrido, dividido em no máximo 3 ou 4 parágrafos bem conectados. PROIBIDO usar tabelas ou listas longas.
+5. FONTES: Cite as fontes raspadas da web de forma orgânica no meio do texto para embasar estritamente os fatos.
+6. AVALIAÇÃO DE ERRO DO MODELO: Explique a probabilidade estatística do SVM de forma técnica. Se a nota do SVM for discrepante da realidade das notícias, identifique essa falha de forma imparcial (ex: viés de vocabulário alarmista).
+7. CONSCIÊNCIA TEMPORAL: Use a "Data Atual do Sistema" para interpretar as notícias corretamente.
+8. Saída: Retorne APENAS um objeto JSON válido no formato exato abaixo: 
+{{
+    "texto_final": "Veredito em texto corrido, estritamente informativo, imparcial e sem emojis.",
+    "modelo_errou": true ou false,
+    "fato_real": "VERDADEIRO" ou "FALSO" ou "INCONCLUSIVO",
+    "motivo_erro": "Se modelo_errou for true, explique tecnicamente por que a máquina se confundiu."
+}}
 """
-# =================================================================
-# 2. CARREGAMENTO DO SEU MACHINE LEARNING LOCAL (SVM + TF-IDF)
-# =================================================================
+
 try:
     modelo_ia = joblib.load("modelo/modelo_fake_news.joblib")
     vetorizador_ia = joblib.load("modelo/tfidf.joblib")
@@ -59,28 +74,13 @@ except Exception as e:
 
 class RequisicaoChat(BaseModel):
     mensagem: str
+    historico: List[Dict[str, str]] = []
 
-
-def limpar_e_carregar_json(texto: str):
-    """Função de segurança para garantir que a API leia o JSON perfeitamente"""
-    try:
-        limpo = texto.strip()
-        if limpo.startswith("```"):
-            limpo = limpo.split("```")[1]
-            if limpo.startswith("json"):
-                limpo = limpo[4:]
-        return json.loads(limpo.strip())
-    except:
-        return None
-
-
-def executar_pipeline_completo(frase_alvo: str):
+def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]]):
     logger.info(f"🤖 Acionando Machine Learning (SVM) para: {frase_alvo}")
     
-    # A) Busca Notícias reais da Web
     noticias = buscar_noticias(frase_alvo)
     
-    # B) Roda a matemática do SVM
     p_verdade, p_falso = 50.0, 50.0
     if modelo_ia and vetorizador_ia:
         try:
@@ -88,41 +88,49 @@ def executar_pipeline_completo(frase_alvo: str):
             probs = modelo_ia.predict_proba(texto_vet)[0]
             p_verdade = round(probs[1] * 100, 2)
             p_falso = round(probs[0] * 100, 2)
-            logger.info(f"📊 Resultado SVM -> Verdadeiro: {p_verdade}% | Falso: {p_falso}%")
         except Exception as e:
             logger.error(f"❌ Erro ao rodar predição do modelo SVM local: {e}")
 
-    # C) A LLM da Groq analisa os dados com toda a eloquência
     prompt_final = f'''
-    Fato investigado pelo usuário: "{frase_alvo}".
+    Fato investigado (já com contexto deduzido): "{frase_alvo}".
     Cálculo estatístico do modelo SVM: {p_verdade}% de Veracidade e {p_falso}% de Desinformação.
     Notícias extraídas da web para cruzamento: {json.dumps(noticias, ensure_ascii=False)}.
     
-    Analise esses dados e escreva um veredito final rico, analítico e detalhado justificando a classificação, conforme as diretrizes do sistema.
+    Analise os dados, verifique se o modelo SVM errou na avaliação e escreva o veredito final em JSON. Lembre-se do histórico da conversa para manter a coesão.
     '''
     
+    mensagens_finais = [{"role": "system", "content": instrucoes_resposta}]
+    mensagens_finais.extend(historico)
+    mensagens_finais.append({"role": "user", "content": prompt_final})
+
     try:
-        # A Groq processa o texto em milissegundos
+        # Temperatura em 0.2 para redação analítica e imparcial
         resposta_groq = client.chat.completions.create(
             model=MODELO_GROQ,
-            messages=[
-                {"role": "system", "content": instrucoes_resposta},
-                {"role": "user", "content": prompt_final}
-            ],
-            temperature=0.4, # Temperatura levemente aumentada para texto mais fluido
+            messages=mensagens_finais,
+            temperature=0.2, 
             response_format={"type": "json_object"}
         )
         
         dados_json = json.loads(resposta_groq.choices[0].message.content)
         texto_final = dados_json.get("texto_final", "Análise concluída com sucesso.")
+        modelo_errou = dados_json.get("modelo_errou", False)
+        fato_real = dados_json.get("fato_real", "INCONCLUSIVO")
+        motivo_erro = dados_json.get("motivo_erro", "")
             
     except Exception as e:
         logger.error(f"❌ Erro na Groq API (resposta final): {e}")
         texto_final = f"A análise estatística apontou {p_falso}% de alerta com base em {len(noticias)} fontes coletadas."
+        modelo_errou = False
+        fato_real = "INCONCLUSIVO"
+        motivo_erro = ""
 
     return {
         "origem": "agente_verificacao",
         "texto": texto_final,
+        "modelo_errou": modelo_errou,
+        "fato_real": fato_real,
+        "motivo_erro": motivo_erro,
         "dados_ml": {
             "verdadeiro": p_verdade,
             "falso": p_falso,
@@ -131,40 +139,38 @@ def executar_pipeline_completo(frase_alvo: str):
         }
     }
 
-
 @app.post("/chat")
 def conversar_com_agente(req: RequisicaoChat):
     logger.info(f"👤 Usuário disse: {req.mensagem}")
     
+    mensagens_triagem = [{"role": "system", "content": instrucoes_triagem}]
+    mensagens_triagem.extend(req.historico)
+    mensagens_triagem.append({"role": "user", "content": req.mensagem})
+
     try:
-        # Passo 1: A IA avalia se precisa de contexto
         resposta_groq = client.chat.completions.create(
             model=MODELO_GROQ,
-            messages=[
-                {"role": "system", "content": instrucoes_triagem},
-                {"role": "user", "content": req.mensagem}
-            ],
+            messages=mensagens_triagem,
             temperature=0.1,
             response_format={"type": "json_object"}
         )
         
         decisao = json.loads(resposta_groq.choices[0].message.content)
-        logger.info(f"🧠 Decisão de Triagem da Groq: {decisao}")
             
-        if decisao.get("status") == "precisa_contexto":
+        # Retorna conversa direta ou pedido de contexto sem rodar SVM e Web Scraping
+        if decisao.get("status") in ["precisa_contexto", "conversa"]:
             return {
                 "origem": "agente_dialogo",
-                "texto": decisao.get("mensagem", "Poderia especificar o país ou contexto da sua pergunta?")
+                "texto": decisao.get("mensagem", "Por favor, especifique o contexto da sua pergunta.")
             }
 
-        # Passo 2: Roda o pipeline com a frase limpa e corrigida
         frase_alvo = decisao.get("frase_limpa", req.mensagem)
-        return executar_pipeline_completo(frase_alvo)
+        return executar_pipeline_completo(frase_alvo, req.historico)
 
     except Exception as e:
         logger.error(f"⚠️ Erro na Groq API (triagem): {e}")
-        resultado_fallback = executar_pipeline_completo(req.mensagem)
-        resultado_fallback["texto"] = f"⚠️ *(Modo de Contingência de Nuvem)*\n\n{resultado_fallback['texto']}"
+        resultado_fallback = executar_pipeline_completo(req.mensagem, req.historico)
+        resultado_fallback["texto"] = f"[Modo de Contingência] {resultado_fallback['texto']}"
         return resultado_fallback
 
 if __name__ == "__main__":
