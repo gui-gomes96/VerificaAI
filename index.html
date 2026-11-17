@@ -4,15 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VERIFICA.AI - Agente Híbrido com Transparência Total</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="js/html2pdf.bundle.min.js"></script>
+    <script src="https://cloudflare.com"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body onload="carregarUsuario()">
 
 <div class="container">
-    <h1>🤖 VERIFICA.AI</h1>
-    <p class="subtitle">Arquitetura Híbrida: IA Generativa + Machine Learning (SVM) + Web Scraping</p>
+    <div class="app-header">
+        <div>
+            <h1>VERIFICA.AI</h1>
+            <p class="subtitle">Arquitetura Híbrida: IA Generativa + Machine Learning (SVM) + Web Scraping</p>
+        </div>
+        <span id="statusApi" class="status-badge offline">● Conectando...</span>
+    </div>
 
     <div class="user-bar">
         <label for="nomeUsuario" style="font-size: 13px; color: #94a3b8;">👤 Identificação:</label>
@@ -26,9 +31,7 @@
     <div class="input-group">
         <textarea id="campoTexto" placeholder="Digite a afirmação que deseja checar..." onkeydown="checarEnter(event)"></textarea>
         
-        <!-- NOVO: Botão de Microfone -->
         <button id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Falar">🎙️</button>
-        
         <button onclick="enviarMensagem()" id="btnEnviar">Enviar</button>
         <button onclick="limparConversa()" class="btn-limpar" title="Limpar Histórico">🗑️</button>
     </div>
