@@ -1,43 +1,45 @@
 # -*- coding: utf-8 -*-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import joblib
 import json
 import logging
-import os
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 from groq import Groq
 
 from backend.buscar_noticias import buscar_noticias
 from backend.analisar_afirmacao import analisar_afirmacao
 
-# Configuração de logs corporativos
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
 
-app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="20.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="21.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-GROQ_API_KEY = "" 
+GROQ_API_KEY = ""
 client = Groq(api_key=GROQ_API_KEY)
 
 MODELO_GROQ = "openai/gpt-oss-120b"
 
-# --- Agente 1: Triagem Direta, Dedução Rápida e Bate-Papo ---
 instrucoes_triagem = """
 Você é o motor de triagem de dados do sistema VERIFICA.AI.
 Sua função é ler a nova mensagem do usuário junto com o histórico da conversa e classificar a intenção.
 Regras de Negócio:
-1. BATE-PAPO / MEMÓRIA: Se o usuário estiver apenas conversando, agradecendo, dizendo "olá", ou fazendo perguntas sobre o histórico (ex: "O que eu perguntei antes?"), NÃO acione a pesquisa. Responda diretamente: {"status": "conversa", "mensagem": "Sua resposta direta, séria e imparcial baseada no histórico."}
+1. BATE-PAPO / MEMÓRIA: Se o usuário estiver apenas conversando, agradecendo, dizendo "olá", ou fazendo perguntas sobre o histórico (ex: "O que eu perguntei antes?", "Como funciona o modelo SVM?"), NÃO acione a pesquisa. Responda diretamente: {"status": "conversa", "mensagem": "Sua resposta direta, séria e imparcial baseada no histórico."}
 2. CONTEXTO LIVRE E DEDUÇÃO INTELIGENTE: Se a frase for um boato/notícia para checar, deduza o contexto automaticamente a partir das mensagens anteriores ou do conhecimento geral sem fazer perguntas desnecessárias.
 3. Se a frase (boato/notícia) estiver compreensível, responda: {"status": "pronto", "frase_limpa": "A frase completa e deduzida para busca"}
 4. APENAS em casos extremos de texto ininteligível sobre uma notícia, responda: {"status": "precisa_contexto", "mensagem": "Por favor, reformule a frase."}
 PROIBIDO USAR EMOJIS ou clichês de IA. Responda SEMPRE em formato JSON válido.
 """
 
-# --- Agente 2: Redação Jornalística e Imparcial ---
 data_hoje = datetime.now().strftime("%d/%m/%Y")
 
 instrucoes_resposta = f"""
@@ -51,7 +53,7 @@ REGRAS DE REDAÇÃO E INTERPRETAÇÃO:
 2. PROIBIDO EMOJIS: Não utilize nenhum emoji, emoticon ou símbolo expressivo em nenhuma parte do texto.
 3. ZERO "CARA DE IA": Nunca utilize frases clichês de inteligência artificial (ex: "Como um modelo de linguagem...", "Olá, estou aqui para ajudar..."). Escreva com a firmeza de um jornalista investigativo humano.
 4. ESTRUTURA: Escreva um texto corrido, dividido em no máximo 3 ou 4 parágrafos bem conectados. PROIBIDO usar tabelas ou listas longas.
-5. FONTES: Cite as fontes raspadas da web de forma orgânica no meio do texto para embasar estritamente os fatos.
+5. FONTES: Cite as fontes raspadas da web de forma orgânica no meio do texto para embasar estamente os fatos.
 6. AVALIAÇÃO DE ERRO DO MODELO: Explique a probabilidade estatística do SVM de forma técnica. Se a nota do SVM for discrepante da realidade das notícias, identifique essa falha de forma imparcial (ex: viés de vocabulário alarmista).
 7. CONSCIÊNCIA TEMPORAL: Use a "Data Atual do Sistema" para interpretar as notícias corretamente.
 8. Saída: Retorne APENAS um objeto JSON válido no formato exato abaixo: 
@@ -66,21 +68,31 @@ REGRAS DE REDAÇÃO E INTERPRETAÇÃO:
 try:
     modelo_ia = joblib.load("modelo/modelo_fake_news.joblib")
     vetorizador_ia = joblib.load("modelo/tfidf.joblib")
-    logger.info("✅ Modelos SVM carregados na memória com sucesso!")
+    logger.info("Modelos SVM carregados na memória com sucesso.")
 except Exception as e:
-    logger.error(f"❌ Erro crítico ao carregar modelos SVM: {e}")
+    logger.error(f"Erro crítico ao carregar modelos SVM: {e}")
     modelo_ia = None
     vetorizador_ia = None
+
 
 class RequisicaoChat(BaseModel):
     mensagem: str
     historico: List[Dict[str, str]] = []
 
+
+@app.get("/health")
+def verificar_saude():
+    return {
+        "status": "online",
+        "svm_carregado": modelo_ia is not None and vetorizador_ia is not None,
+    }
+
+
 def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]]):
-    logger.info(f"🤖 Acionando Machine Learning (SVM) para: {frase_alvo}")
-    
+    logger.info(f"Acionando Machine Learning (SVM) para: {frase_alvo}")
+
     noticias = buscar_noticias(frase_alvo)
-    
+
     p_verdade, p_falso = 50.0, 50.0
     if modelo_ia and vetorizador_ia:
         try:
@@ -89,7 +101,7 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
             p_verdade = round(probs[1] * 100, 2)
             p_falso = round(probs[0] * 100, 2)
         except Exception as e:
-            logger.error(f"❌ Erro ao rodar predição do modelo SVM local: {e}")
+            logger.error(f"Erro ao rodar predição do modelo SVM local: {e}")
 
     prompt_final = f'''
     Fato investigado (já com contexto deduzido): "{frase_alvo}".
@@ -98,28 +110,27 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
     
     Analise os dados, verifique se o modelo SVM errou na avaliação e escreva o veredito final em JSON. Lembre-se do histórico da conversa para manter a coesão.
     '''
-    
+
     mensagens_finais = [{"role": "system", "content": instrucoes_resposta}]
     mensagens_finais.extend(historico)
     mensagens_finais.append({"role": "user", "content": prompt_final})
 
     try:
-        # Temperatura em 0.2 para redação analítica e imparcial
         resposta_groq = client.chat.completions.create(
             model=MODELO_GROQ,
             messages=mensagens_finais,
-            temperature=0.2, 
-            response_format={"type": "json_object"}
+            temperature=0.2,
+            response_format={"type": "json_object"},
         )
-        
+
         dados_json = json.loads(resposta_groq.choices[0].message.content)
         texto_final = dados_json.get("texto_final", "Análise concluída com sucesso.")
         modelo_errou = dados_json.get("modelo_errou", False)
         fato_real = dados_json.get("fato_real", "INCONCLUSIVO")
         motivo_erro = dados_json.get("motivo_erro", "")
-            
+
     except Exception as e:
-        logger.error(f"❌ Erro na Groq API (resposta final): {e}")
+        logger.error(f"Erro na Groq API (resposta final): {e}")
         texto_final = f"A análise estatística apontou {p_falso}% de alerta com base em {len(noticias)} fontes coletadas."
         modelo_errou = False
         fato_real = "INCONCLUSIVO"
@@ -135,14 +146,15 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
             "verdadeiro": p_verdade,
             "falso": p_falso,
             "fontes_cruzadas": len(noticias),
-            "fontes_lista": noticias
-        }
+            "fontes_lista": noticias,
+        },
     }
+
 
 @app.post("/chat")
 def conversar_com_agente(req: RequisicaoChat):
-    logger.info(f"👤 Usuário disse: {req.mensagem}")
-    
+    logger.info(f"Usuário disse: {req.mensagem}")
+
     mensagens_triagem = [{"role": "system", "content": instrucoes_triagem}]
     mensagens_triagem.extend(req.historico)
     mensagens_triagem.append({"role": "user", "content": req.mensagem})
@@ -152,26 +164,26 @@ def conversar_com_agente(req: RequisicaoChat):
             model=MODELO_GROQ,
             messages=mensagens_triagem,
             temperature=0.1,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
-        
+
         decisao = json.loads(resposta_groq.choices[0].message.content)
-            
-        # Retorna conversa direta ou pedido de contexto sem rodar SVM e Web Scraping
+
         if decisao.get("status") in ["precisa_contexto", "conversa"]:
             return {
                 "origem": "agente_dialogo",
-                "texto": decisao.get("mensagem", "Por favor, especifique o contexto da sua pergunta.")
+                "texto": decisao.get("mensagem", "Por favor, especifique o contexto da sua pergunta."),
             }
 
         frase_alvo = decisao.get("frase_limpa", req.mensagem)
         return executar_pipeline_completo(frase_alvo, req.historico)
 
     except Exception as e:
-        logger.error(f"⚠️ Erro na Groq API (triagem): {e}")
+        logger.error(f"Erro na Groq API (triagem): {e}")
         resultado_fallback = executar_pipeline_completo(req.mensagem, req.historico)
         resultado_fallback["texto"] = f"[Modo de Contingência] {resultado_fallback['texto']}"
         return resultado_fallback
+
 
 if __name__ == "__main__":
     import uvicorn

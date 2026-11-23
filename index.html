@@ -3,37 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>VERIFICA.AI - Agente Híbrido com Transparência Total</title>
     <script src="js/html2pdf.bundle.min.js"></script>
     <script src="https://cloudflare.com"></script>
+=======
+    <title>Verifica AI — Ambiente de Checagem de Fatos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body onload="carregarUsuario()">
+<body>
 
 <div class="container">
+<<<<<<< HEAD
     <div class="app-header">
         <div>
             <h1>VERIFICA.AI</h1>
             <p class="subtitle">Arquitetura Híbrida: IA Generativa + Machine Learning (SVM) + Web Scraping</p>
         </div>
         <span id="statusApi" class="status-badge offline">● Conectando...</span>
+=======
+    <div class="top-header">
+        <a href="inicio.html" class="brand-link" title="Voltar para a Página Inicial">
+            <div class="header-logo-badge">
+                <img src="assets/logo-nome.png" alt="Logo Verifica AI" class="header-logo-wordmark">
+            </div>
+            <p class="subtitle">Arquitetura Híbrida: Análise Contextual + Machine Learning (SVM) + Web Scraping</p>
+        </a>
+        <a href="inicio.html" class="btn-home-nav">Página Inicial</a>
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     </div>
 
     <div class="user-bar">
-        <label for="nomeUsuario" style="font-size: 13px; color: #94a3b8;">👤 Identificação:</label>
+        <label for="nomeUsuario" style="font-size: 13px; color: #94a3b8; font-weight: 600;">Identificação do Pesquisador:</label>
         <input type="text" id="nomeUsuario" placeholder="Digite seu nome (Ex: Guilherme)" onblur="trocarUsuario()" onkeypress="verificarEnterUsuario(event)">
     </div>
 
-    <div class="chat-container" id="chatContainer">
-        <!-- Chat gerado via JavaScript -->
-    </div>
+    <div class="chat-container" id="chatContainer"></div>
 
     <div class="input-group">
+<<<<<<< HEAD
         <textarea id="campoTexto" placeholder="Digite a afirmação que deseja checar..." onkeydown="checarEnter(event)"></textarea>
         
         <button id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Falar">🎙️</button>
+=======
+        <textarea id="campoTexto" placeholder="Digite a afirmação que deseja verificar..." onkeydown="checarEnter(event)"></textarea>
+        <button id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Entrada por Voz">Voz</button>
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         <button onclick="enviarMensagem()" id="btnEnviar">Enviar</button>
-        <button onclick="limparConversa()" class="btn-limpar" title="Limpar Histórico">🗑️</button>
+        <button onclick="limparConversa()" class="btn-limpar" title="Limpar Histórico da Sessão">Limpar</button>
     </div>
 </div>
 

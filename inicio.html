@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Verifica AI - Ferramenta gratuita de checagem de fatos que combina inteligência artificial e pesquisa em portais de notícias para combater a desinformação.">
+    <title>Verifica AI — Checagem de Fatos e Combate à Desinformação</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,600;0,6..72,700;1,6..72,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/entrada.css">
+</head>
+<body>
+
+    <!-- Faixa Superior de Status -->
+    <div class="telemetry-bar">
+        <div class="telemetry-inner">
+            <span class="telemetry-label">PLATAFORMA DE VERIFICAÇÃO DE NOTÍCIAS E FATOS</span>
+            <div class="telemetry-right">
+                <span class="telemetry-tech">INTELIGÊNCIA ARTIFICIAL + FONTES DA IMPRENSA</span>
+                <div id="statusApi" class="status-indicator offline" title="Estado de conexão com o sistema de análise">
+                    <span class="status-dot"></span>
+                    <span id="statusTexto">Verificando sistema...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cabeçalho Principal -->
+    <header class="navbar" id="navbar">
+        <div class="navbar-inner">
+            <a href="inicio.html" class="brand" aria-label="Página inicial Verifica AI">
+                <img src="assets/logo-nome.png" alt="Logotipo Verifica AI" class="brand-logo-wordmark">
+                <span class="brand-divider" aria-hidden="true"></span>
+                <span class="brand-subtitle">Checagem de Fatos</span>
+            </a>
+
+            <nav class="nav-links" aria-label="Seções da página">
+                <a href="#como-funciona">Como Funciona</a>
+                <a href="#auditoria-svm">Exemplos Reais</a>
+                <a href="#documentacao">Nosso Trabalho</a>
+                <a href="#sobre-projeto">Sobre o Projeto</a>
+            </nav>
+
+            <div class="nav-cta">
+                <a href="index.html" class="btn-header">Verificar Notícia</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Primeira Dobra -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <!-- Coluna Esquerda: Apresentação Clara + Campo de Pesquisa -->
+                <div class="hero-left">
+                    <div class="kicker">COMBATE À DESINFORMAÇÃO COM TRANSPARÊNCIA</div>
+                    
+                    <h1 class="hero-headline">
+                        Descubra se uma notícia é verdadeira antes de compartilhar.
+                    </h1>
+
+                    <p class="hero-lead">
+                        O <strong>Verifica AI</strong> analisa o jeito como o texto foi escrito e compara a informação com reportagens recentes de grandes veículos de imprensa. Você recebe uma resposta clara, com todas as fontes consultadas e um comprovante em PDF.
+                    </p>
+
+                    <form class="quick-search-box" onsubmit="iniciarConsultaRapida(event)">
+                        <label for="inputHomeBusca" class="sr-only">Digite uma notícia ou afirmação para verificar</label>
+                        <input 
+                            type="text" 
+                            id="inputHomeBusca" 
+                            placeholder="Cole uma manchete ou escreva a dúvida que você recebeu..." 
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" class="btn-search-submit">Checar Agora</button>
+                    </form>
+
+                    <div class="sample-queries">
+                        <span class="sample-label">Teste com um clique:</span>
+                        <button type="button" class="sample-chip" onclick="testarExemplo('O café vai ser proibido no Brasil este ano?')">
+                            O café vai ser proibido no Brasil?
+                        </button>
+                        <button type="button" class="sample-chip" onclick="testarExemplo('URGENTE! O Banco Central encerrou definitivamente as transferências via DOC no Brasil!')">
+                            Fim do DOC no Brasil (Fato real)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: Mascote como Guia da Checagem -->
+                <aside class="hero-right" aria-label="Como o Verifica AI analisa cada informação">
+                    <div class="mascot-hero-card">
+                        <div class="mascot-card-top">
+                            <span class="mascot-badge">GUIA DE VERIFICAÇÃO</span>
+                            <span class="mascot-version">DUPLA CONFERÊNCIA</span>
+                        </div>
+
+                        <div class="mascot-stage">
+                            <img src="logo-verifica.png" alt="Mascote investigadora do Verifica AI com óculos e lupa analisando uma notícia" class="mascot-hero-img">
+                        </div>
+
+                        <div class="mascot-caption">
+                            <p class="mascot-quote">"Informação de verdade faz um mundo melhor."</p>
+                            <p class="mascot-desc">
+                                Nosso sistema não dá apenas um palpite: ele combina uma inteligência artificial treinada para reconhecer padrões de boatos com uma busca em tempo real nos portais de notícias.
+                            </p>
+                        </div>
+
+                        <div class="mascot-layers">
+                            <div class="layer-item">
+                                <span class="layer-code">PASSO 1</span>
+                                <span>Leitura do Texto</span>
+                            </div>
+                            <div class="layer-item">
+                                <span class="layer-code">PASSO 2</span>
+                                <span>Filtro Inteligente</span>
+                            </div>
+                            <div class="layer-item">
+                                <span class="layer-code">PASSO 3</span>
+                                <span>Busca em Jornais</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- Seção 2: Explicação Didática do Funcionamento (Incluindo o que é SVM) -->
+        <section id="como-funciona" class="methodology-section">
+            <div class="section-inner split-layout">
+                <div class="split-sidebar">
+                    <span class="section-eyebrow">01 / COMO FUNCIONA</span>
+                    <h2>O que é a tecnologia SVM e por que usamos dupla conferência?</h2>
+                    <p>
+                        O <strong>SVM</strong> (sigla em inglês para <em>Máquina de Vetores de Suporte</em>) é um programa de inteligência artificial treinado com milhares de notícias verdadeiras e falsas. Ele funciona de forma parecida com um <strong>filtro inteligente de spam</strong>: analisa as palavras usadas no texto e calcula se aquela frase tem o estilo de um boato.
+                    </p>
+                    <p>
+                        Porém, manchetes verdadeiras escritas em tom urgente podem confundir filtros automáticos. Por isso, o <strong>Verifica AI</strong> sempre confere o resultado com reportagens reais antes de responder.
+                    </p>
+
+                    <div class="mascot-guide-note">
+                        <img src="logo-verifica.png" alt="Avatar Verifica AI" class="mascot-mini-avatar">
+                        <div>
+                            <strong>Transparência Total</strong>
+                            <span>Se o filtro matemático se enganar por causa de palavras alarmistas, o sistema avisa você na tela e explica o motivo.</span>
+                        </div>
+                    </div>
+
+                    <a href="index.html" class="link-arrow">Ir para a tela de verificação &rarr;</a>
+                </div>
+
+                <div class="split-content" id="especificacoes">
+                    <article class="spec-row">
+                        <div class="spec-index">PASSO 01</div>
+                        <div class="spec-body">
+                            <h3>Entendimento da sua pergunta</h3>
+                            <p>
+                                Você pode digitar ou falar usando o microfone. O sistema organiza a frase principal e lembra o histórico da sua conversa para que você possa tirar dúvidas adicionais sem precisar repetir tudo.
+                            </p>
+                        </div>
+                    </article>
+
+                    <article class="spec-row">
+                        <div class="spec-index">PASSO 02</div>
+                        <div class="spec-body">
+                            <h3>Análise de padrões de escrita (Filtro SVM)</h3>
+                            <p>
+                                O texto passa pelo modelo matemático SVM, que mede em porcentagem o quanto aquela mensagem se parece com notícias falsas ou verdadeiras conhecidas na base de treinamento.
+                            </p>
+                        </div>
+                    </article>
+
+                    <article class="spec-row">
+                        <div class="spec-index">PASSO 03</div>
+                        <div class="spec-body">
+                            <h3>Pesquisa em portais de notícias</h3>
+                            <p>
+                                Ao mesmo tempo, o sistema consulta veículos de imprensa confiáveis na internet para verificar o que os jornalistas estão publicando sobre aquele assunto naquele momento.
+                            </p>
+                        </div>
+                    </article>
+
+                    <article class="spec-row">
+                        <div class="spec-index">PASSO 04</div>
+                        <div class="spec-body">
+                            <h3>Explicação clara e laudo em PDF</h3>
+                            <p>
+                                O sistema junta o cálculo matemático com as reportagens encontradas, apresenta uma resposta imparcial e permite baixar um documento oficial em PDF com todos os links consultados.
+                            </p>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção 3: Exemplos Práticos -->
+        <section id="auditoria-svm" class="comparison-section">
+            <div class="section-inner">
+                <div class="section-top-header">
+                    <span class="section-eyebrow">02 / NA PRÁTICA</span>
+                    <h2>Como o sistema reage em dois casos diferentes</h2>
+                    <p>Veja por que cruzar inteligência artificial com reportagens reais evita erros comuns na verificação de notícias.</p>
+                </div>
+
+                <div class="comparison-grid">
+                    <div class="case-card">
+                        <div class="case-meta">
+                            <span class="case-tag">CASO 1 — BOATO VIRAL</span>
+                            <span class="case-result false">RESULTADO: FALSO</span>
+                        </div>
+                        <h3>"A internet e o Wi-Fi caíram no mundo inteiro hoje"</h3>
+                        <p class="case-desc">
+                            O filtro SVM identifica características típicas de correntes falsas (99,98% de chance de ser boato). A busca nos portais de notícias confirma que houve apenas falhas pontuais em alguns sites, confirmando que a afirmação é falsa.
+                        </p>
+                        <div class="case-footer-note">
+                            Conclusão: <strong>Filtro automático e reportagens concordaram</strong>
+                        </div>
+                    </div>
+
+                    <div class="case-card highlight-border">
+                        <div class="case-meta">
+                            <span class="case-tag">CASO 2 — NOTÍCIA VERDADEIRA URGENTE</span>
+                            <span class="case-result true">RESULTADO: VERDADEIRO</span>
+                        </div>
+                        <h3>"URGENTE! O Banco Central encerrou definitivamente as transferências via DOC no Brasil!"</h3>
+                        <p class="case-desc">
+                            Por usar palavras típicas de golpes financeiros ("URGENTE", "Banco Central", "encerrou"), o filtro SVM acha inicialmente que é mentira. Porém, ao consultar portais como Agência Brasil e G1, o sistema confirma que o DOC realmente acabou em 2024 e corrige a resposta para Verdadeiro.
+                        </p>
+                        <div class="case-footer-note">
+                            Conclusão: <strong>Erro do filtro corrigido pelas fontes reais</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção de Galeria -->
+        <section id="documentacao" class="gallery-section">
+            <div class="section-inner">
+                <div class="section-top-header">
+                    <span class="section-eyebrow">03 / NOSSO TRABALHO</span>
+                    <h2>Pesquisa e checagem baseadas em evidências</h2>
+                    <p>Cada verificação combina análise computacional e consulta documental para oferecer segurança a estudantes, professores e cidadãos.</p>
+                </div>
+
+                <div class="gallery-layout">
+                    <figure class="gallery-item-block feature-block">
+                        <div class="gallery-img-wrapper">
+                            <img src="assets/ambiente-checagem.jpg" alt="Estação de pesquisa com computadores, relatórios e gráficos de análise" class="gallery-img">
+                        </div>
+                        <figcaption class="gallery-caption">
+                            <strong>AMBIENTE DE PESQUISA E CHECAGEM</strong> — Comparação de dados, análise de relatórios e cruzamento de informações em veículos de imprensa.
+                        </figcaption>
+                    </figure>
+
+                    <aside class="gallery-side-column">
+                        <figure class="gallery-item-block sub-block">
+                            <div class="gallery-img-wrapper small">
+                                <img src="assets/fake-news-teclado.jpg" alt="Sinalizador vermelho escrito Fake News sobre teclado de computador" class="gallery-img">
+                            </div>
+                            <figcaption class="gallery-caption small">
+                                <strong>IDENTIFICAÇÃO DE BOATOS</strong> — Análise de mensagens alarmistas e correntes compartilhadas nas redes sociais.
+                            </figcaption>
+                        </figure>
+
+                        <div class="gallery-info-badge">
+                            <span class="info-eyebrow">COMPROVANTE OFICIAL</span>
+                            <h4>Laudo em PDF</h4>
+                            <p>Ao final de cada consulta, você pode baixar um relatório completo em PDF contendo o veredito, os percentuais da análise e os links de todas as notícias lidas.</p>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção 4: Apresentação Institucional -->
+        <section id="sobre-projeto" class="institutional-section">
+            <div class="section-inner">
+                <div class="institutional-box">
+                    <div class="institutional-emblem">
+                        <img src="logo-verifica.png" alt="Emblema oficial Verifica AI">
+                    </div>
+                    <div class="institutional-text">
+                        <span class="section-eyebrow">04 / SOBRE O PROJETO</span>
+                        <h2>Informação de verdade faz um mundo melhor.</h2>
+                        <p>
+                            O <strong>Verifica AI</strong> nasceu com o propósito de tornar a checagem de fatos simples, transparente e acessível para qualquer pessoa. Em vez de pedir que você apenas confie na resposta da máquina, mostramos exatamente quais jornais foram consultados e como chegamos a cada conclusão.
+                        </p>
+                        <div class="institutional-specs">
+                            <div>
+                                <strong>Tecnologia</strong>
+                                <span>Inteligência Artificial + Busca Web</span>
+                            </div>
+                            <div>
+                                <strong>Comprovante</strong>
+                                <span>Laudo gratuito em PDF</span>
+                            </div>
+                            <div>
+                                <strong>Facilidade de Uso</strong>
+                                <span>Pesquisa por texto ou por voz</span>
+                            </div>
+                        </div>
+                        <div class="institutional-cta">
+                            <a href="index.html" class="btn-solid-navy">Começar a Verificar Agora</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="site-footer">
+        <div class="footer-container">
+            <div class="footer-left">
+                <div class="footer-logo-badge">
+                    <img src="assets/logo-nome.png" alt="Logo Verifica AI">
+                </div>
+                <p>Ferramenta educacional e científica de checagem de fatos que une inteligência artificial e jornalismo para combater notícias falsas.</p>
+            </div>
+
+            <div class="footer-nav">
+                <div class="footer-col">
+                    <h4>Navegação</h4>
+                    <a href="inicio.html">Página Inicial</a>
+                    <a href="index.html">Verificar Notícia</a>
+                    <a href="#como-funciona">Como Funciona</a>
+                </div>
+                <div class="footer-col">
+                    <h4>Recursos</h4>
+                    <a href="#como-funciona">O que é SVM</a>
+                    <a href="#auditoria-svm">Exemplos Reais</a>
+                    <a href="#documentacao">Laudo em PDF</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-legal">
+            <span>Verifica AI — Projeto Científico de Checagem de Fatos</span>
+            <span>Transparência • Imparcialidade • Educação Midiática</span>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+    <script>
+        function iniciarConsultaRapida(event) {
+            event.preventDefault();
+            const termo = document.getElementById("inputHomeBusca").value.trim();
+            if (termo) {
+                window.location.href = `index.html?q=${encodeURIComponent(termo)}`;
+            }
+        }
+
+        function testarExemplo(frase) {
+            window.location.href = `index.html?q=${encodeURIComponent(frase)}`;
+        }
+    </script>
+</body>
+</html>

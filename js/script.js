@@ -3,6 +3,7 @@ let memoriaConversa = [];
 let usuarioAtual = "Visitante";
 
 document.addEventListener("DOMContentLoaded", () => {
+<<<<<<< HEAD
     verificarStatusAPI();
 });
 
@@ -36,8 +37,85 @@ function formatarTextoIA(texto) {
         .replace(/\n/g, "<br>");
 }
 
+=======
+    // Inicialização específica da página inicial (inicio.html)
+    if (document.getElementById("navbar")) {
+        configurarNavbarScroll();
+    }
+    if (document.getElementById("statusApi")) {
+        verificarStatusServidor();
+    }
+
+    // Inicialização específica do verificador (index.html)
+    if (document.getElementById("chatContainer") && document.getElementById("nomeUsuario")) {
+        carregarUsuario();
+    }
+});
+
+// ==========================================================================
+// FUNÇÕES DA HOME (inicio.html)
+// ==========================================================================
+function configurarNavbarScroll() {
+    const navbar = document.getElementById("navbar");
+    if (!navbar) return;
+
+    window.addEventListener("scroll", () => {
+        if (window.scrollY > 12) {
+            navbar.classList.add("scrolled");
+        } else {
+            navbar.classList.remove("scrolled");
+        }
+    });
+}
+
+async function verificarStatusServidor() {
+    const pill = document.getElementById("statusApi");
+    const texto = document.getElementById("statusTexto");
+    if (!pill || !texto) return;
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+        const resposta = await fetch(`${API_BASE_URL}/health`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!resposta.ok) {
+            throw new Error("Servidor indisponível");
+        }
+
+        const dados = await resposta.json();
+        pill.className = "status-pill online";
+        texto.textContent = dados.svm_carregado
+            ? "Servidor e SVM Ativos"
+            : "Servidor Online";
+    } catch (erro) {
+        try {
+            const respDocs = await fetch(`${API_BASE_URL}/docs`);
+            if (respDocs.ok) {
+                pill.className = "status-pill online";
+                texto.textContent = "Servidor Local Ativo";
+                return;
+            }
+        } catch (_) {
+            // Backend local desligado
+        }
+
+        pill.className = "status-pill offline";
+        texto.textContent = "Servidor Local Aguardando";
+    }
+}
+
+// ==========================================================================
+// SISTEMA DE USUÁRIO E MEMÓRIA LOCAL (index.html)
+// ==========================================================================
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
 function carregarUsuario() {
     const inputNome = document.getElementById("nomeUsuario");
+    if (!inputNome) return;
+
     const ultimoUsuario = localStorage.getItem("verifica_ai_ultimo_user") || "Visitante";
     inputNome.value = ultimoUsuario === "Visitante" ? "" : ultimoUsuario;
     trocarUsuario();
@@ -50,12 +128,25 @@ function verificarEnterUsuario(event) {
 }
 
 function trocarUsuario() {
+<<<<<<< HEAD
     const inputNome = document.getElementById("nomeUsuario").value.trim();
     usuarioAtual = inputNome !== "" ? inputNome : "Visitante";
+=======
+    const inputNome = document.getElementById("nomeUsuario");
+    if (!inputNome) return;
+
+    const valorNome = inputNome.value.trim();
+    usuarioAtual = valorNome !== "" ? valorNome : "Visitante";
+
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     localStorage.setItem("verifica_ai_ultimo_user", usuarioAtual);
 
     const conversaSalva = localStorage.getItem(`verifica_ai_chat_${usuarioAtual}`);
     memoriaConversa = conversaSalva ? JSON.parse(conversaSalva) : [];
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     renderizarChat();
 }
 
@@ -66,6 +157,7 @@ function salvarConversaNoNavegador() {
 
 function renderizarChat() {
     const chatContainer = document.getElementById("chatContainer");
+<<<<<<< HEAD
     chatContainer.innerHTML = `
         <div class="message ai">
             Olá, <strong>${escaparHTML(usuarioAtual)}</strong>! Sou o agente investigador do VERIFICA.AI. Digite a afirmação que deseja checar ou use o microfone.
@@ -92,6 +184,21 @@ function renderizarChat() {
                     `<div class="message ai history" id="${idHist}">${formatarTextoIA(msg.content)}</div>`
                 );
             }
+=======
+    if (!chatContainer) return;
+
+    chatContainer.innerHTML = `
+        <div class="message ai">
+            Sessão ativa para <strong>${usuarioAtual}</strong>. Insira a afirmação ou notícia que deseja auditar nas bases de dados.
+        </div>
+    `;
+
+    memoriaConversa.forEach(msg => {
+        if (msg.role === "user") {
+            chatContainer.innerHTML += `<div class="message user history">${msg.content}</div>`;
+        } else if (msg.role === "assistant") {
+            chatContainer.innerHTML += `<div class="message ai history">${formatarTextoIA(msg.content)}</div>`;
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         }
     });
 
@@ -104,10 +211,20 @@ function limparConversa() {
     renderizarChat();
 }
 
+<<<<<<< HEAD
 function iniciarReconhecimentoVoz() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         alert("Seu navegador não suporta reconhecimento de voz nativo. Utilize o Google Chrome ou Edge.");
+=======
+// ==========================================================================
+// ENTRADA POR VOZ, EFEITO DE DIGITAÇÃO E SUGESTÕES
+// ==========================================================================
+function iniciarReconhecimentoVoz() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert("Este navegador não suporta reconhecimento de voz nativo. Utilize o Google Chrome.");
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         return;
     }
 
@@ -117,11 +234,16 @@ function iniciarReconhecimentoVoz() {
 
     const btnVoz = document.getElementById("btnVoz");
     btnVoz.classList.add("gravando");
+<<<<<<< HEAD
     btnVoz.innerText = "🔴";
+=======
+    btnVoz.innerText = "Ouvindo...";
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
 
     recognition.onresult = function (event) {
         const transcricao = event.results[0][0].transcript;
         document.getElementById("campoTexto").value = transcricao;
+<<<<<<< HEAD
         setTimeout(enviarMensagem, 500);
     };
 
@@ -130,9 +252,14 @@ function iniciarReconhecimentoVoz() {
         btnVoz.innerText = "🎙️";
     };
 
+=======
+        setTimeout(enviarMensagem, 600);
+    };
+
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     recognition.onend = function () {
         btnVoz.classList.remove("gravando");
-        btnVoz.innerText = "🎙️";
+        btnVoz.innerText = "Voz";
     };
 }
 
@@ -151,6 +278,10 @@ function efeitoDigitacaoSeguro(elementoHtml, htmlCompleto, velocidade, callback)
             if (char === ">") isTag = false;
 
             i++;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
             if (isTag) {
                 digitar();
             } else {
@@ -167,6 +298,7 @@ function adicionarRespostasRapidas() {
     const chatContainer = document.getElementById("chatContainer");
     const idSugestoes = "sugestoes-" + Date.now();
 
+<<<<<<< HEAD
     chatContainer.insertAdjacentHTML(
         "beforeend",
         `
@@ -174,6 +306,13 @@ function adicionarRespostasRapidas() {
             <button type="button" class="btn-quick" onclick="usarSugestao('Resuma a avaliação em uma linha, por favor.', '${idSugestoes}')">Resumir</button>
             <button type="button" class="btn-quick" onclick="usarSugestao('Como funciona o cálculo do modelo SVM?', '${idSugestoes}')">O que é SVM?</button>
             <button type="button" class="btn-quick" onclick="usarSugestao('Obrigado pela análise!', '${idSugestoes}')">Obrigado</button>
+=======
+    chatContainer.innerHTML += `
+        <div id="${idSugestoes}" class="quick-replies">
+            <button class="btn-quick" onclick="usarSugestao('Resuma a avaliação anterior em uma linha.', '${idSugestoes}')">Resumir parecer</button>
+            <button class="btn-quick" onclick="usarSugestao('Como funciona o classificador SVM utilizado?', '${idSugestoes}')">Explicar modelo SVM</button>
+            <button class="btn-quick" onclick="usarSugestao('Qual foi a minha pergunta anterior?', '${idSugestoes}')">Revisar histórico</button>
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         </div>
         `
     );
@@ -187,6 +326,7 @@ function usarSugestao(texto, idParaRemover) {
     enviarMensagem();
 }
 
+<<<<<<< HEAD
 function baixarLaudoPDF(idMensagem) {
     const elementoOriginal = document.getElementById(idMensagem);
     if (!elementoOriginal) {
@@ -205,8 +345,67 @@ function baixarLaudoPDF(idMensagem) {
 
     const dataAtual = new Date().toLocaleDateString("pt-BR", {
         day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+=======
+// ==========================================================================
+// GERAÇÃO DE LAUDO PERICIAL EM PDF
+// ==========================================================================
+function baixarLaudoPDF(idMensagem) {
+    const elementoOriginal = document.getElementById(idMensagem);
+    const elementoClone = elementoOriginal.cloneNode(true);
+
+    const botaoPdf = elementoClone.querySelector(".btn-pdf");
+    if (botaoPdf) botaoPdf.remove();
+
+    const feedbackArea = elementoClone.querySelector(".feedback-area");
+    if (feedbackArea) feedbackArea.remove();
+
+    const detalhes = elementoClone.querySelectorAll("details");
+    detalhes.forEach(detalhe => detalhe.setAttribute("open", "true"));
+
+    elementoClone.style.padding = "20px";
+    elementoClone.style.backgroundColor = "#0f172a";
+    elementoClone.style.color = "#f8fafc";
+    elementoClone.style.width = "100%";
+    elementoClone.style.maxWidth = "800px";
+    elementoClone.style.boxSizing = "border-box";
+    elementoClone.style.borderRadius = "0";
+
+    const cabecalho = document.createElement("div");
+    const dataAtual = new Date().toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+    cabecalho.innerHTML = `
+        <div style="text-align: center; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="color: #38bdf8; margin: 0; font-size: 20px; text-transform: uppercase;">VERIFICA.AI — Laudo Técnico de Checagem</h2>
+            <p style="color: #94a3b8; font-size: 12px; margin: 5px 0 0 0;">Pesquisador: ${usuarioAtual} | Emissão: ${dataAtual}</p>
+        </div>
+    `;
+    elementoClone.insertBefore(cabecalho, elementoClone.firstChild);
+
+    const divTemporaria = document.createElement("div");
+    divTemporaria.style.position = "absolute";
+    divTemporaria.style.left = "-9999px";
+    divTemporaria.appendChild(elementoClone);
+    document.body.appendChild(divTemporaria);
+
+    const opcoes = {
+        margin: 15,
+        filename: `Laudo_VerificaAI_${usuarioAtual}.pdf`,
+        image: { type: "jpeg", quality: 1.0 },
+        html2canvas: { scale: 2, backgroundColor: "#0f172a", useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+    };
+
+    html2pdf().set(opcoes).from(elementoClone).save().then(() => {
+        document.body.removeChild(divTemporaria);
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     });
 
+<<<<<<< HEAD
     // Cria um iframe oculto (não ativa bloqueador de pop-up)
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -345,6 +544,11 @@ function baixarLaudoPDF(idMensagem) {
         setTimeout(() => document.body.removeChild(iframe), 1000);
     }, 250);
 }
+=======
+// ==========================================================================
+// COMUNICAÇÃO COM A API FASTAPI
+// ==========================================================================
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
 function checarEnter(event) {
     if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -352,6 +556,7 @@ function checarEnter(event) {
     }
 }
 
+<<<<<<< HEAD
 function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
     const ml = dados.dados_ml || { verdadeiro: 50, falso: 50, fontes_cruzadas: 0, fontes_lista: [] };
     const classeSelo = dados.fato_real ? dados.fato_real.toLowerCase() : "inconclusivo";
@@ -406,6 +611,10 @@ function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
             <button type="button" class="btn-pdf" onclick="baixarLaudoPDF('${idCard}')">📄 Baixar Laudo PDF</button>
         </div>
     `;
+=======
+function formatarTextoIA(texto) {
+    return texto.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
 }
 
 async function enviarMensagem() {
@@ -416,23 +625,32 @@ async function enviarMensagem() {
 
     if (!texto) return;
 
+<<<<<<< HEAD
     document.querySelectorAll(".quick-replies").forEach((el) => el.remove());
 
     chatContainer.insertAdjacentHTML("beforeend", `<div class="message user">${escaparHTML(texto)}</div>`);
+=======
+    chatContainer.innerHTML += `<div class="message user">${texto}</div>`;
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     campo.value = "";
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
     const idTemp = "msg-" + Date.now();
+<<<<<<< HEAD
     chatContainer.insertAdjacentHTML(
         "beforeend",
         `<div class="message ai pensando" id="${idTemp}">⏳ [01s] Iniciando triagem inteligente...</div>`
     );
+=======
+    chatContainer.innerHTML += `<div class="message ai pensando" id="${idTemp}">[01s] Iniciando triagem da afirmação...</div>`;
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     chatContainer.scrollTop = chatContainer.scrollHeight;
     botao.disabled = true;
 
     let segundos = 1;
     const timerInterval = setInterval(() => {
         segundos++;
+<<<<<<< HEAD
         const el = document.getElementById(idTemp);
         if (el) {
             const tempoFormatado = String(segundos).padStart(2, "0");
@@ -440,6 +658,16 @@ async function enviarMensagem() {
             if (segundos >= 2 && segundos < 5) statusTexto = "Consultando modelo SVM e buscando notícias...";
             else if (segundos >= 5) statusTexto = "Cruzando fontes e redigindo veredito...";
             el.innerText = `⏳ [${tempoFormatado}s] ${statusTexto}`;
+=======
+        const elementoPensando = document.getElementById(idTemp);
+        if (elementoPensando) {
+            let statusTexto = "Analisando...";
+            if (segundos === 2) statusTexto = "Consultando fontes jornalísticas...";
+            if (segundos === 4) statusTexto = "Executando modelo estatístico SVM...";
+            if (segundos === 6) statusTexto = "Cruzando métricas com evidências...";
+            if (segundos >= 8) statusTexto = "Consolidando parecer final...";
+            elementoPensando.innerHTML = `${statusTexto} (${segundos}s)`;
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         }
     }, 1000);
 
@@ -447,11 +675,14 @@ async function enviarMensagem() {
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
+<<<<<<< HEAD
         const historicoLimpo = memoriaConversa.slice(-6).map((m) => ({
             role: m.role,
             content: m.content
         }));
 
+=======
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         const resposta = await fetch(`${API_BASE_URL}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -465,6 +696,7 @@ async function enviarMensagem() {
         clearTimeout(timeoutId);
         clearInterval(timerInterval);
 
+<<<<<<< HEAD
         if (!resposta.ok) {
             throw new Error(`Erro HTTP ${resposta.status}`);
         }
@@ -490,13 +722,125 @@ async function enviarMensagem() {
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             });
         }
+=======
+        const msgElemento = document.getElementById(idTemp);
+        msgElemento.classList.remove("pensando");
+        msgElemento.innerHTML = "";
+
+        memoriaConversa.push({ role: "user", content: texto });
+        memoriaConversa.push({ role: "assistant", content: dados.texto });
+        salvarConversaNoNavegador();
+
+        if (dados.origem === "agente_dialogo" || dados.origem === "erro") {
+            efeitoDigitacaoSeguro(msgElemento, formatarTextoIA(dados.texto), 15, () => {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                adicionarRespostasRapidas();
+            });
+        } else if (dados.origem === "agente_verificacao") {
+            const ml = dados.dados_ml;
+            const idTextoPrincipal = "txt-" + Date.now();
+            const idPainelOculto = "painel-" + Date.now();
+
+            let htmlAlertaErro = "";
+            if (dados.modelo_errou) {
+                const corFato = dados.fato_real === "VERDADEIRO"
+                    ? "#22c55e"
+                    : (dados.fato_real === "FALSO" ? "#ef4444" : "#eab308");
+
+                htmlAlertaErro = `
+                    <div style="background-color: #450a0a; border-left: 5px solid #ef4444; padding: 15px; margin-bottom: 15px; border-radius: 4px;">
+                        <h3 style="color: #fca5a5; margin: 0 0 10px 0; font-size: 14px;">ALERTA DE AUDITORIA: DIVERGÊNCIA NO MODELO ESTATÍSTICO SVM</h3>
+                        <div style="margin-bottom: 10px;">
+                            <span style="background-color: ${corFato}; color: #fff; padding: 5px 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">FATO REAL: ${dados.fato_real}</span>
+                        </div>
+                        <p style="color: #f8fafc; font-size: 13px; margin: 0;"><strong>Diagnóstico do erro estatístico:</strong> ${formatarTextoIA(dados.motivo_erro)}</p>
+                    </div>
+                `;
+            }
+
+            let htmlFontes = "";
+            if (ml.fontes_lista && ml.fontes_lista.length > 0) {
+                const itensLista = ml.fontes_lista.map(fonte => {
+                    const textoFonte = typeof fonte === "object" ? JSON.stringify(fonte) : fonte;
+                    return `<li style="margin-bottom: 6px;">${textoFonte}</li>`;
+                }).join("");
+
+                htmlFontes = `
+                    <details style="margin-top: 12px; background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155;">
+                        <summary style="cursor: pointer; color: #38bdf8; font-weight: bold; font-size: 13px; outline: none;">
+                            Fontes Jornalísticas Coletadas (${ml.fontes_cruzadas})
+                        </summary>
+                        <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 11px; color: #cbd5e1; line-height: 1.4;">
+                            ${itensLista}
+                        </ul>
+                    </details>
+                `;
+            }
+
+            const htmlDetalhesTecnicos = `
+                <details style="margin-top: 8px; background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155;">
+                    <summary style="cursor: pointer; color: #4ade80; font-weight: bold; font-size: 13px; outline: none;">
+                        Detalhes do Pipeline Técnico (Transparência Algorítmica)
+                    </summary>
+                    <div style="margin-top: 10px; font-size: 11px; color: #cbd5e1; line-height: 1.5; font-family: monospace;">
+                        • <strong>Modelo Estatístico:</strong> SVM (TF-IDF Vectorizer)<br>
+                        • <strong>Score Verdadeiro (Matemático):</strong> ${ml.verdadeiro}%<br>
+                        • <strong>Score Falso (Matemático):</strong> ${ml.falso}%<br>
+                        • <strong>Auditoria de Contexto:</strong> Groq API (Llama 3)<br>
+                        • <strong>Coleta Web:</strong> Google News RSS Parser Ativo
+                    </div>
+                </details>
+            `;
+
+            msgElemento.innerHTML = `
+                ${htmlAlertaErro}
+                <div id="${idTextoPrincipal}" style="margin-bottom: 10px;"></div>
+
+                <div id="${idPainelOculto}" style="display: none;">
+                    <div class="termometro">
+                        <div class="stat-item"><span>Veracidade (SVM)</span><strong style="color: #4ade80;">${ml.verdadeiro}%</strong></div>
+                        <div class="stat-item"><span>Desinformação (SVM)</span><strong style="color: #f87171;">${ml.falso}%</strong></div>
+                        <div class="stat-item"><span>Fontes Lidas</span><strong style="color: #38bdf8;">${ml.fontes_cruzadas}</strong></div>
+                    </div>
+                    ${htmlFontes}
+                    ${htmlDetalhesTecnicos}
+
+                    <button class="btn-pdf" onclick="baixarLaudoPDF('${idTemp}')" style="margin-top: 15px; width: 100%; background-color: #1D63DC; color: white; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer;">
+                        Baixar Laudo Oficial em PDF
+                    </button>
+
+                    <div class="feedback-area">
+                        <span style="font-size: 12px; color: #94a3b8;">Avaliar precisão da análise:</span>
+                        <button class="btn-feedback" onclick="this.innerText='Confirmado'; this.style.borderColor='#22c55e'; this.style.color='#22c55e';">Preciso</button>
+                        <button class="btn-feedback" onclick="this.innerText='Registrado'; this.style.borderColor='#ef4444'; this.style.color='#ef4444';">Divergente</button>
+                    </div>
+                </div>
+            `;
+
+            const divTextoPrincipal = document.getElementById(idTextoPrincipal);
+            const divPainelOculto = document.getElementById(idPainelOculto);
+
+            efeitoDigitacaoSeguro(divTextoPrincipal, formatarTextoIA(dados.texto), 10, () => {
+                divPainelOculto.style.display = "block";
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                adicionarRespostasRapidas();
+            });
+        }
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
     } catch (erro) {
         clearTimeout(timeoutId);
         clearInterval(timerInterval);
+<<<<<<< HEAD
         const cardErro = document.getElementById(idTemp);
         if (cardErro) {
             cardErro.classList.remove("pensando");
             cardErro.innerHTML = `<span style="color: #ef4444;">❌ Não foi possível conectar ao servidor VERIFICA.AI (${escaparHTML(erro.message)}). Verifique se o backend está rodando.</span>`;
+=======
+        const msgElemento = document.getElementById(idTemp);
+        if (msgElemento) {
+            msgElemento.classList.remove("pensando");
+            msgElemento.innerHTML = "Erro de conexão com o servidor local. Verifique se o Uvicorn está ativo na porta 8000.";
+>>>>>>> 0379ef2 (Home do site versão provisoria test)
         }
     } finally {
         botao.disabled = false;
