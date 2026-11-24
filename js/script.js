@@ -1,9 +1,40 @@
+// Troque esta URL pelo endereço da sua API hospedada (ex: https://verifica-ai-api.onrender.com) quando subir online
 const API_BASE_URL = "http://127.0.0.1:8000";
-let memoriaConversa = [];
+
+let visitanteId = "";
+let conversasSalvas = [];
+let conversaAtivaId = null;
 let usuarioAtual = "Visitante";
 
 // ==========================================================================
-// CONTROLE DE MODO NOTURNO ADAPTATIVO E SINCRONIZADO
+// 1. SISTEMA DE COOKIE ANÔNIMO (IDENTIFICAÇÃO LOCAL SEM LOGIN)
+// ==========================================================================
+function obterOuCriarCookieVisitante() {
+    const nomeCookie = "verifica_ai_vid";
+    const partes = document.cookie.split("; ");
+    for (const parte of partes) {
+        if (parte.startsWith(nomeCookie + "=")) {
+            return decodeURIComponent(parte.split("=")[1]);
+        }
+    }
+
+    const novoId = "v_" + Date.now().toString(36) + "_" + Math.random().toString(36).substring(2, 9);
+    const validade = new Date();
+    validade.setDate(validade.getDate() + 30); // Validade de 30 dias
+    document.cookie = `${nomeCookie}=${encodeURIComponent(novoId)}; expires=${validade.toUTCString()}; path=/; SameSite=Lax`;
+    return novoId;
+}
+
+function chaveStorageConversas() {
+    return `verifica_ai_chats_${visitanteId}`;
+}
+
+function chaveStorageConversaAtiva() {
+    return `verifica_ai_ativa_${visitanteId}`;
+}
+
+// ==========================================================================
+// 2. CONTROLE DE MODO NOTURNO ADAPTATIVO E SINCRONIZADO
 // ==========================================================================
 function obterTemaPreferido() {
     const salvo = localStorage.getItem("verifica_ai_tema");
@@ -22,7 +53,6 @@ function aplicarTema(tema) {
 function alternarTema() {
     const temaAtual = document.documentElement.getAttribute("data-theme") || obterTemaPreferido();
     const novoTema = temaAtual === "dark" ? "light" : "dark";
-
     localStorage.setItem("verifica_ai_tema", novoTema);
     aplicarTema(novoTema);
 }
@@ -58,14 +88,12 @@ function atualizarBotaoTema(tema) {
     });
 }
 
-// Sincroniza se o tema for alterado em outra aba do navegador
 window.addEventListener("storage", (event) => {
     if (event.key === "verifica_ai_tema") {
         aplicarTema(obterTemaPreferido());
     }
 });
 
-// Adapta automaticamente se o usuário mudar o tema do navegador/sistema operacional
 if (window.matchMedia) {
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
         if (!localStorage.getItem("verifica_ai_tema")) {
@@ -75,10 +103,11 @@ if (window.matchMedia) {
 }
 
 // ==========================================================================
-// INICIALIZAÇÃO GERAL
+// 3. INICIALIZAÇÃO GERAL
 // ==========================================================================
 document.addEventListener("DOMContentLoaded", () => {
     aplicarTema(obterTemaPreferido());
+    visitanteId = obterOuCriarCookieVisitante();
 
     if (document.getElementById("navbar")) {
         configurarNavbarScroll();
@@ -87,12 +116,18 @@ document.addEventListener("DOMContentLoaded", () => {
         verificarStatusServidor();
     }
 
-    if (document.getElementById("chatContainer") && document.getElementById("nomeUsuario")) {
-        carregarUsuario();
+    if (document.getElementById("chatContainer")) {
+        carregarNomePesquisador();
+        inicializarGerenciadorConversas();
 
         const paramsUrl = new URLSearchParams(window.location.search);
         const consultaInicial = paramsUrl.get("q");
         if (consultaInicial && document.getElementById("campoTexto")) {
+            // Cria uma nova conversa limpa se vier da busca da Home
+            const ativa = obterConversaAtiva();
+            if (ativa && ativa.mensagens.length > 0) {
+                criarNovaConversa(false);
+            }
             document.getElementById("campoTexto").value = consultaInicial;
             window.history.replaceState({}, document.title, "index.html");
             setTimeout(() => enviarMensagem(), 450);
@@ -101,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================================================
-// FUNÇÕES DA PÁGINA INICIAL (inicio.html)
+// 4. FUNÇÕES DA PÁGINA INICIAL (inicio.html)
 // ==========================================================================
 function configurarNavbarScroll() {
     const navbar = document.getElementById("navbar");
@@ -123,7 +158,7 @@ async function verificarStatusServidor() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2500);
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
 
         const resposta = await fetch(`${API_BASE_URL}/health`, {
             signal: controller.signal
@@ -142,24 +177,168 @@ async function verificarStatusServidor() {
                 : "Sistema Online";
         }
     } catch (erro) {
-        try {
-            const respDocs = await fetch(`${API_BASE_URL}/docs`);
-            if (respDocs.ok) {
-                pill.className = "status-indicator online";
-                if (texto) texto.textContent = "Sistema Local Ativo";
-                return;
-            }
-        } catch (_) {
-            // Backend local desligado
-        }
-
         pill.className = "status-indicator offline";
-        if (texto) texto.textContent = "Aguardando servidor local";
+        if (texto) texto.textContent = "Aguardando servidor";
     }
 }
 
 // ==========================================================================
-// UTILITÁRIOS DE FORMATAÇÃO E SEGURANÇA
+// 5. GERENCIADOR DE MÚLTIPLAS CONVERSAS (ESTILO CHAT DE IA)
+// ==========================================================================
+function carregarNomePesquisador() {
+    const inputNome = document.getElementById("nomeUsuario");
+    const salvo = localStorage.getItem(`verifica_ai_nome_${visitanteId}`) || "";
+    usuarioAtual = salvo.trim() !== "" ? salvo.trim() : "Visitante";
+    if (inputNome) {
+        inputNome.value = salvo;
+    }
+}
+
+function verificarEnterUsuario(event) {
+    if (event.key === "Enter") {
+        document.getElementById("nomeUsuario").blur();
+    }
+}
+
+function salvarNomePesquisador() {
+    const inputNome = document.getElementById("nomeUsuario");
+    if (!inputNome) return;
+    const valor = inputNome.value.trim();
+    usuarioAtual = valor !== "" ? valor : "Visitante";
+    localStorage.setItem(`verifica_ai_nome_${visitanteId}`, valor);
+}
+
+function inicializarGerenciadorConversas() {
+    try {
+        const raw = localStorage.getItem(chaveStorageConversas());
+        conversasSalvas = raw ? JSON.parse(raw) : [];
+    } catch {
+        conversasSalvas = [];
+    }
+
+    const salvaAtiva = localStorage.getItem(chaveStorageConversaAtiva());
+
+    if (conversasSalvas.length === 0) {
+        criarNovaConversa(false);
+    } else {
+        const existe = conversasSalvas.find((c) => c.id === salvaAtiva);
+        conversaAtivaId = existe ? existe.id : conversasSalvas[0].id;
+        salvarEstadoConversas();
+        renderizarListaConversas();
+        renderizarChat();
+    }
+}
+
+function salvarEstadoConversas() {
+    // Mantém no máximo as 30 conversas mais recentes no aparelho
+    conversasSalvas = conversasSalvas.slice(0, 30);
+    localStorage.setItem(chaveStorageConversas(), JSON.stringify(conversasSalvas));
+    if (conversaAtivaId) {
+        localStorage.setItem(chaveStorageConversaAtiva(), conversaAtivaId);
+    }
+}
+
+function obterConversaAtiva() {
+    return conversasSalvas.find((c) => c.id === conversaAtivaId) || null;
+}
+
+function criarNovaConversa(fecharMenuMobile = true) {
+    const agora = new Date();
+    const horaFmt = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const nova = {
+        id: "chat_" + Date.now(),
+        titulo: "Nova checagem",
+        data: `Hoje, ${horaFmt}`,
+        mensagens: []
+    };
+
+    conversasSalvas.unshift(nova);
+    conversaAtivaId = nova.id;
+    salvarEstadoConversas();
+    renderizarListaConversas();
+    renderizarChat();
+
+    if (fecharMenuMobile) {
+        alternarSidebarMobile(false);
+    }
+    const campo = document.getElementById("campoTexto");
+    if (campo) campo.focus();
+}
+
+function selecionarConversa(id) {
+    conversaAtivaId = id;
+    salvarEstadoConversas();
+    renderizarListaConversas();
+    renderizarChat();
+    alternarSidebarMobile(false);
+}
+
+function excluirConversa(event, id) {
+    event.stopPropagation();
+    conversasSalvas = conversasSalvas.filter((c) => c.id !== id);
+
+    if (conversasSalvas.length === 0) {
+        criarNovaConversa(false);
+        return;
+    }
+
+    if (conversaAtivaId === id) {
+        conversaAtivaId = conversasSalvas[0].id;
+    }
+
+    salvarEstadoConversas();
+    renderizarListaConversas();
+    renderizarChat();
+}
+
+function apagarTodoHistorico() {
+    if (!confirm("Deseja apagar todas as verificações salvas neste aparelho?")) return;
+    conversasSalvas = [];
+    criarNovaConversa(true);
+}
+
+function alternarSidebarMobile(abrir) {
+    const sidebar = document.getElementById("chatSidebar");
+    const backdrop = document.getElementById("sidebarBackdrop");
+    if (!sidebar || !backdrop) return;
+
+    if (abrir) {
+        sidebar.classList.add("open");
+        backdrop.classList.add("open");
+    } else {
+        sidebar.classList.remove("open");
+        backdrop.classList.remove("open");
+    }
+}
+
+function renderizarListaConversas() {
+    const lista = document.getElementById("listaConversas");
+    if (!lista) return;
+
+    lista.innerHTML = "";
+    conversasSalvas.forEach((conv) => {
+        const ativaClass = conv.id === conversaAtivaId ? "active" : "";
+        const item = document.createElement("div");
+        item.className = `conv-item ${ativaClass}`;
+        item.onclick = () => selecionarConversa(conv.id);
+
+        item.innerHTML = `
+            <div class="conv-info">
+                <div class="conv-title">${escaparHTML(conv.titulo)}</div>
+                <div class="conv-meta">${escaparHTML(conv.data)} • ${Math.floor(conv.mensagens.length / 2)} checagem(ns)</div>
+            </div>
+            <button type="button" class="btn-delete-conv" title="Excluir esta conversa" aria-label="Excluir conversa">&times;</button>
+        `;
+
+        const btnDel = item.querySelector(".btn-delete-conv");
+        btnDel.onclick = (e) => excluirConversa(e, conv.id);
+
+        lista.appendChild(item);
+    });
+}
+
+// ==========================================================================
+// 6. UTILITÁRIOS E RENDERIZAÇÃO DO CHAT
 // ==========================================================================
 function escaparHTML(texto) {
     if (!texto) return "";
@@ -174,53 +353,20 @@ function formatarTextoIA(texto) {
         .replace(/\n/g, "<br>");
 }
 
-// ==========================================================================
-// SISTEMA DE USUÁRIO E MEMÓRIA LOCAL (index.html)
-// ==========================================================================
-function carregarUsuario() {
-    const inputNome = document.getElementById("nomeUsuario");
-    if (!inputNome) return;
-
-    const ultimoUsuario = localStorage.getItem("verifica_ai_ultimo_user") || "Visitante";
-    inputNome.value = ultimoUsuario === "Visitante" ? "" : ultimoUsuario;
-    trocarUsuario();
-}
-
-function verificarEnterUsuario(event) {
-    if (event.key === "Enter") {
-        document.getElementById("nomeUsuario").blur();
-    }
-}
-
-function trocarUsuario() {
-    const inputNome = document.getElementById("nomeUsuario");
-    if (!inputNome) return;
-
-    const valorNome = inputNome.value.trim();
-    usuarioAtual = valorNome !== "" ? valorNome : "Visitante";
-    localStorage.setItem("verifica_ai_ultimo_user", usuarioAtual);
-
-    const conversaSalva = localStorage.getItem(`verifica_ai_chat_${usuarioAtual}`);
-    memoriaConversa = conversaSalva ? JSON.parse(conversaSalva) : [];
-    renderizarChat();
-}
-
-function salvarConversaNoNavegador() {
-    const recorte = memoriaConversa.slice(-25);
-    localStorage.setItem(`verifica_ai_chat_${usuarioAtual}`, JSON.stringify(recorte));
-}
-
 function renderizarChat() {
     const chatContainer = document.getElementById("chatContainer");
     if (!chatContainer) return;
 
+    const ativa = obterConversaAtiva();
+    const mensagens = ativa ? ativa.mensagens : [];
+
     chatContainer.innerHTML = `
         <div class="message ai">
-            Sessão ativa para <strong>${escaparHTML(usuarioAtual)}</strong>. Digite a afirmação ou notícia que deseja verificar ou clique em Voz para falar.
+            Olá! Digite ou cole abaixo a notícia ou afirmação que deseja verificar. Suas conversas ficam salvas automaticamente neste aparelho, sem precisar de login.
         </div>
     `;
 
-    memoriaConversa.forEach((msg, index) => {
+    mensagens.forEach((msg, index) => {
         if (msg.role === "user") {
             chatContainer.insertAdjacentHTML(
                 "beforeend",
@@ -229,7 +375,13 @@ function renderizarChat() {
         } else if (msg.role === "assistant") {
             const idHist = `msg-hist-${index}`;
             if (msg.meta && (msg.meta.origem === "agente_verificacao" || msg.meta.origem === "fallback_estatistico")) {
-                const htmlCard = construirHTMLTransparencia(msg.meta, idHist, formatarTextoIA(msg.content));
+                const htmlCard = construirHTMLTransparencia(
+                    msg.meta,
+                    idHist,
+                    msg.perguntaOrigem || "",
+                    formatarTextoIA(msg.content),
+                    msg.feedbackEnviado || null
+                );
                 chatContainer.insertAdjacentHTML(
                     "beforeend",
                     `<div class="message ai history" id="${idHist}">${htmlCard}</div>`
@@ -246,14 +398,8 @@ function renderizarChat() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-function limparConversa() {
-    memoriaConversa = [];
-    salvarConversaNoNavegador();
-    renderizarChat();
-}
-
 // ==========================================================================
-// ENTRADA POR VOZ, EFEITO DE DIGITAÇÃO E SUGESTÕES
+// 7. VOZ, DIGITAÇÃO E SUGESTÕES
 // ==========================================================================
 function iniciarReconhecimentoVoz() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -323,7 +469,7 @@ function adicionarRespostasRapidas() {
         `
         <div id="${idSugestoes}" class="quick-replies">
             <button type="button" class="btn-quick" onclick="usarSugestao('Resuma a avaliação em uma linha, por favor.', '${idSugestoes}')">Resumir parecer</button>
-            <button type="button" class="btn-quick" onclick="usarSugestao('Como funciona o cálculo do modelo SVM?', '${idSugestoes}')">O que é SVM?</button>
+            <button type="button" class="btn-quick" onclick="usarSugestao('Como funciona o modelo SVM?', '${idSugestoes}')">O que é SVM?</button>
             <button type="button" class="btn-quick" onclick="usarSugestao('Qual foi a minha pergunta anterior?', '${idSugestoes}')">Revisar histórico</button>
         </div>
         `
@@ -339,7 +485,57 @@ function usarSugestao(texto, idParaRemover) {
 }
 
 // ==========================================================================
-// GERAÇÃO DE LAUDO PERICIAL EM PDF (IMPRESSÃO LIMPA A4)
+// 8. FEEDBACK ANÔNIMO PARA APRENDIZADO CONTÍNUO DO SVM (/feedback)
+// ==========================================================================
+async function enviarFeedbackModelo(btnClicado, idCard, avaliacao) {
+    const card = document.getElementById(idCard);
+    if (!card) return;
+
+    const afirmacao = card.getAttribute("data-afirmacao") || "";
+    const veredito = card.getAttribute("data-veredito") || "";
+
+    // Desabilita ambos os botões do card para evitar cliques duplicados
+    const botoes = card.querySelectorAll(".btn-feedback");
+    botoes.forEach((b) => (b.disabled = true));
+
+    if (avaliacao === "preciso") {
+        btnClicado.innerText = "Confirmado (Obrigado!)";
+        btnClicado.style.borderColor = "#15803D";
+        btnClicado.style.color = "#15803D";
+    } else {
+        btnClicado.innerText = "Registrado para revisão";
+        btnClicado.style.borderColor = "#B91C1C";
+        btnClicado.style.color = "#B91C1C";
+    }
+
+    // Salva no estado local da conversa
+    const ativa = obterConversaAtiva();
+    if (ativa) {
+        const msgAlvo = ativa.mensagens.find((m) => m.perguntaOrigem === afirmacao && m.role === "assistant");
+        if (msgAlvo) {
+            msgAlvo.feedbackEnviado = avaliacao;
+            salvarEstadoConversas();
+        }
+    }
+
+    // Envia de forma anônima para o FastAPI registrar no dataset_coletado_evento.csv
+    try {
+        await fetch(`${API_BASE_URL}/feedback`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                texto_afirmacao: afirmacao,
+                veredito_exibido: veredito,
+                avaliacao: avaliacao
+            })
+        });
+    } catch {
+        // Falha silenciosa se estiver offline
+    }
+}
+
+// ==========================================================================
+// 9. GERAÇÃO DE LAUDO PERICIAL EM PDF (IMPRESSÃO LIMPA A4)
 // ==========================================================================
 function baixarLaudoPDF(idMensagem) {
     const elementoOriginal = document.getElementById(idMensagem);
@@ -501,7 +697,7 @@ function baixarLaudoPDF(idMensagem) {
 }
 
 // ==========================================================================
-// COMUNICAÇÃO COM A API FASTAPI
+// 10. COMUNICAÇÃO COM A API FASTAPI (/chat)
 // ==========================================================================
 function checarEnter(event) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -510,9 +706,10 @@ function checarEnter(event) {
     }
 }
 
-function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
+function construirHTMLTransparencia(dados, idCard, perguntaOrigem = "", textoInicial = "", feedbackAnterior = null) {
     const ml = dados.dados_ml || { verdadeiro: 50, falso: 50, fontes_cruzadas: 0, fontes_lista: [] };
-    const classeSelo = dados.fato_real ? dados.fato_real.toLowerCase() : "inconclusivo";
+    const vereditoStr = dados.fato_real || "INCONCLUSIVO";
+    const classeSelo = vereditoStr.toLowerCase();
 
     let alertaErroHTML = "";
     if (dados.modelo_errou) {
@@ -526,6 +723,9 @@ function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
     let listaFontesHTML = "<p class='sem-fontes'>Nenhuma fonte externa indexada para esta consulta.</p>";
     if (ml.fontes_lista && ml.fontes_lista.length > 0) {
         const itens = ml.fontes_lista.map((f) => {
+            if (typeof f === "string") {
+                return `<li>${escaparHTML(f)}</li>`;
+            }
             const titulo = escaparHTML(f.titulo || f.title || f.url || "Fonte consultada");
             const link = f.link || f.url || "#";
             return `<li><a href="${escaparHTML(link)}" target="_blank" rel="noopener noreferrer">${titulo}</a></li>`;
@@ -533,9 +733,13 @@ function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
         listaFontesHTML = `<ul class="lista-fontes">${itens}</ul>`;
     }
 
+    const disAttr = feedbackAnterior ? "disabled" : "";
+    const txtPreciso = feedbackAnterior === "preciso" ? "Confirmado (Obrigado!)" : "Preciso";
+    const txtDivergente = feedbackAnterior === "divergente" ? "Registrado para revisão" : "Divergente";
+
     return `
         <div class="veredito-header">
-            <span class="selo-fato ${classeSelo}">VEREDITO: ${escaparHTML(dados.fato_real || "INCONCLUSIVO")}</span>
+            <span class="selo-fato ${classeSelo}">VEREDITO: ${escaparHTML(vereditoStr)}</span>
         </div>
         <div class="texto-veredito">${textoInicial}</div>
         <details class="painel-transparencia">
@@ -561,9 +765,9 @@ function construirHTMLTransparencia(dados, idCard, textoInicial = "") {
             </div>
         </details>
         <div class="feedback-area">
-            <span style="font-size: 12px; color: #64748B; margin-right: auto;">Avaliar análise:</span>
-            <button type="button" class="btn-feedback" onclick="this.innerText='Confirmado'; this.style.borderColor='#15803D'; this.style.color='#15803D';">Preciso</button>
-            <button type="button" class="btn-feedback" onclick="this.innerText='Registrado'; this.style.borderColor='#B91C1C'; this.style.color='#B91C1C';">Divergente</button>
+            <span class="feedback-label">Esta análise ajudou? (Ensina o modelo):</span>
+            <button type="button" class="btn-feedback" ${disAttr} onclick="enviarFeedbackModelo(this, '${idCard}', 'preciso')">${txtPreciso}</button>
+            <button type="button" class="btn-feedback" ${disAttr} onclick="enviarFeedbackModelo(this, '${idCard}', 'divergente')">${txtDivergente}</button>
             <button type="button" class="btn-pdf" onclick="baixarLaudoPDF('${idCard}')">Baixar Laudo PDF</button>
         </div>
     `;
@@ -576,6 +780,14 @@ async function enviarMensagem() {
     const botao = document.getElementById("btnEnviar");
 
     if (!texto) return;
+
+    const ativa = obterConversaAtiva();
+    if (!ativa) return;
+
+    // Atualiza o título da conversa na barra lateral com a primeira pergunta
+    if (ativa.mensagens.length === 0) {
+        ativa.titulo = texto.length > 42 ? texto.substring(0, 42) + "..." : texto;
+    }
 
     document.querySelectorAll(".quick-replies").forEach((el) => el.remove());
 
@@ -608,7 +820,7 @@ async function enviarMensagem() {
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     try {
-        const historicoLimpo = memoriaConversa.slice(-6).map((m) => ({
+        const historicoLimpo = ativa.mensagens.slice(-6).map((m) => ({
             role: m.role,
             content: m.content
         }));
@@ -634,12 +846,26 @@ async function enviarMensagem() {
         const cardMensagem = document.getElementById(idTemp);
         cardMensagem.classList.remove("pensando");
 
-        memoriaConversa.push({ role: "user", content: texto });
-        memoriaConversa.push({ role: "assistant", content: dados.texto, meta: dados });
-        salvarConversaNoNavegador();
+        // Guarda atributos no card para o envio de feedback anônimo
+        cardMensagem.setAttribute("data-afirmacao", texto);
+        cardMensagem.setAttribute("data-veredito", dados.fato_real || "INCONCLUSIVO");
+
+        ativa.mensagens.push({ role: "user", content: texto });
+        ativa.mensagens.push({
+            role: "assistant",
+            content: dados.texto,
+            meta: dados,
+            perguntaOrigem: texto,
+            feedbackEnviado: null
+        });
+
+        // Limita a 30 mensagens por conversa para não pesar o aparelho
+        ativa.mensagens = ativa.mensagens.slice(-30);
+        salvarEstadoConversas();
+        renderizarListaConversas();
 
         if (dados.origem === "agente_verificacao" || dados.origem === "fallback_estatistico") {
-            cardMensagem.innerHTML = construirHTMLTransparencia(dados, idTemp);
+            cardMensagem.innerHTML = construirHTMLTransparencia(dados, idTemp, texto);
             const divTexto = cardMensagem.querySelector(".texto-veredito");
             efeitoDigitacaoSeguro(divTexto, formatarTextoIA(dados.texto), 12, () => {
                 adicionarRespostasRapidas();
