@@ -129,7 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 criarNovaConversa(false);
             }
             document.getElementById("campoTexto").value = consultaInicial;
-            window.history.replaceState({}, document.title, "index.html");
+            window.history.replaceState({}, document.title, "chat.html");
+
             setTimeout(() => enviarMensagem(), 450);
         }
     }
