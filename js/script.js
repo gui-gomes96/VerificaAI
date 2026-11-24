@@ -1,5 +1,5 @@
 // Troque esta URL pelo endereço da sua API hospedada (ex: https://verifica-ai-api.onrender.com) quando subir online
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "";
 
 let visitanteId = "";
 let conversasSalvas = [];
@@ -158,7 +158,8 @@ async function verificarStatusServidor() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
 
         const resposta = await fetch(`${API_BASE_URL}/health`, {
             signal: controller.signal
