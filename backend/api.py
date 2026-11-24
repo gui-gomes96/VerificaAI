@@ -261,8 +261,9 @@ if __name__ == "__main__":
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-# Páginas HTML
+# Páginas HTML (responde tanto na raiz / quanto em /index.html)
 @app.get("/")
+@app.get("/index.html")
 def pagina_inicial():
     return FileResponse("index.html")
 
@@ -275,7 +276,8 @@ def pagina_inicio():
 def logo():
     return FileResponse("logo-verifica.png")
 
-# Pastas públicas do front-end (estilos, scripts e todas as imagens/capivaras)
+# Pastas públicas do front-end
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/js", StaticFiles(directory="js"), name="js")
+
