@@ -257,3 +257,22 @@ if __name__ == "__main__":
     import uvicorn
     porta = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=porta)
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+@app.get("/")
+def pagina_inicial():
+    return FileResponse("index.html")
+
+@app.get("/inicio.html")
+def pagina_inicio():
+    return FileResponse("inicio.html")
+
+app.mount("/css", StaticFiles(directory="css"), name="css")
+app.mount("/js", StaticFiles(directory="js"), name="js")
+
+@app.get("/logo-verifica.png")
+def logo():
+    return FileResponse("logo-verifica.png")
+
