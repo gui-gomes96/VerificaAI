@@ -60,7 +60,7 @@
                     </svg>
                     <span>GitHub</span>
                 </a>
-                <a href="index.html" class="btn-header">Verificar Notícia</a>
+                <a href="chat.html" class="btn-header">Verificar Notícia</a>
             </div>
         </div>
     </header>
@@ -334,7 +334,7 @@
                         <span class="info-eyebrow">COMPROVANTE OFICIAL</span>
                         <h4>Laudo Técnico em PDF</h4>
                         <p>Ao final de cada consulta, você pode baixar um relatório completo em PDF contendo o veredito, os percentuais da análise e os links de todas as notícias lidas.</p>
-                        <a href="index.html" class="btn-card-light">Testar no Verificador &rarr;</a>
+                        <a href="chat.html" class="btn-card-light">Testar no Verificador &rarr;</a>
                     </div>
                 </div>
             </div>
@@ -543,12 +543,12 @@
             event.preventDefault();
             const termo = document.getElementById("inputHomeBusca").value.trim();
             if (termo) {
-                window.location.href = `index.html?q=${encodeURIComponent(termo)}`;
+                window.location.href = `chat.html?q=${encodeURIComponent(termo)}`;
             }
         }
 
         function testarExemplo(frase) {
-            window.location.href = `index.html?q=${encodeURIComponent(frase)}`;
+            window.location.href = `chat.html?q=${encodeURIComponent(frase)}`;
         }
     </script>
 </body>
