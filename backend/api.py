@@ -267,9 +267,10 @@ from fastapi.responses import FileResponse
 def pagina_inicial():
     return FileResponse("index.html")
 
-@app.get("/inicio.html")
-def pagina_inicio():
-    return FileResponse("inicio.html")
+@app.get("/chat.html")
+def pagina_chat():
+    return FileResponse("chat.html")
+
 
 # Imagem na raiz
 @app.get("/logo-verifica.png")
