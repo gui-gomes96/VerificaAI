@@ -2,15 +2,21 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+import os
+import csv
 import joblib
 import json
 import logging
 from datetime import datetime
 from typing import List, Dict
+from dotenv import load_dotenv
 from groq import Groq
 
 from backend.buscar_noticias import buscar_noticias
 from backend.analisar_afirmacao import analisar_afirmacao
+
+# Carrega variáveis do arquivo .env (apenas no ambiente local)
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
@@ -24,7 +30,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GROQ_API_KEY = ""
+# Lê o token com segurança do ambiente (.env local ou painel da hospedagem)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+if not GROQ_API_KEY:
+    logger.warning("GROQ_API_KEY não encontrada nas variáveis de ambiente! Configure o arquivo .env ou o painel da nuvem.")
+
 client = Groq(api_key=GROQ_API_KEY)
 
 MODELO_GROQ = "openai/gpt-oss-120b"
@@ -74,10 +84,46 @@ except Exception as e:
     modelo_ia = None
     vetorizador_ia = None
 
+# ==========================================================================
+# COLETA ANÔNIMA DE DADOS PARA APRENDIZADO CONTÍNUO DO SVM
+# ==========================================================================
+CAMINHO_COLETA_CSV = "modelo/dataset_coletado_evento.csv"
+
+def registrar_dado_anonimo(frase: str, fato_real: str, p_verdade: float, p_falso: float, origem_registro: str = "checagem"):
+    if not frase or len(frase.strip()) < 12 or fato_real not in ["VERDADEIRO", "FALSO"]:
+        return
+
+    try:
+        os.makedirs(os.path.dirname(CAMINHO_COLETA_CSV), exist_ok=True)
+        arquivo_existe = os.path.exists(CAMINHO_COLETA_CSV)
+        label_numerico = 1 if fato_real == "VERDADEIRO" else 0
+
+        with open(CAMINHO_COLETA_CSV, mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not arquivo_existe:
+                writer.writerow(["data_hora", "texto", "label", "fato_real", "svm_verdadeiro", "svm_falso", "origem"])
+            writer.writerow([
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                frase.strip(),
+                label_numerico,
+                fato_real,
+                p_verdade,
+                p_falso,
+                origem_registro
+            ])
+    except Exception as e:
+        logger.warning(f"Falha ao registrar dado anônimo para treino: {e}")
+
 
 class RequisicaoChat(BaseModel):
     mensagem: str
     historico: List[Dict[str, str]] = []
+
+
+class RequisicaoFeedback(BaseModel):
+    texto_afirmacao: str
+    veredito_exibido: str
+    avaliacao: str
 
 
 @app.get("/health")
@@ -86,6 +132,25 @@ def verificar_saude():
         "status": "online",
         "svm_carregado": modelo_ia is not None and vetorizador_ia is not None,
     }
+
+
+@app.post("/feedback")
+def registrar_feedback_visitante(req: RequisicaoFeedback):
+    veredito = req.veredito_exibido.upper().strip()
+    avaliacao = req.avaliacao.lower().strip()
+
+    if veredito in ["VERDADEIRO", "FALSO"]:
+        rotulo_final = veredito if avaliacao == "preciso" else (
+            "FALSO" if veredito == "VERDADEIRO" else "VERDADEIRO"
+        )
+        registrar_dado_anonimo(
+            frase=req.texto_afirmacao,
+            fato_real=rotulo_final,
+            p_verdade=50.0,
+            p_falso=50.0,
+            origem_registro=f"feedback_{avaliacao}"
+        )
+    return {"status": "ok"}
 
 
 def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]]):
@@ -128,6 +193,9 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
         modelo_errou = dados_json.get("modelo_errou", False)
         fato_real = dados_json.get("fato_real", "INCONCLUSIVO")
         motivo_erro = dados_json.get("motivo_erro", "")
+
+        # Salva anonimamente para o retreino futuro do SVM
+        registrar_dado_anonimo(frase_alvo, fato_real, p_verdade, p_falso, "checagem_hibrida")
 
     except Exception as e:
         logger.error(f"Erro na Groq API (resposta final): {e}")
@@ -187,4 +255,5 @@ def conversar_com_agente(req: RequisicaoChat):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    porta = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=porta)

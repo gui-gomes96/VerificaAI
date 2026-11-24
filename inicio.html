@@ -8,6 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,600;0,6..72,700;1,6..72,600&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const salvo = localStorage.getItem("verifica_ai_tema");
+            const prefereEscuro = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const temaInicial = salvo ? salvo : (prefereEscuro ? "dark" : "light");
+            document.documentElement.setAttribute("data-theme", temaInicial);
+        })();
+    </script>
     <link rel="stylesheet" href="css/entrada.css">
 </head>
 <body>
@@ -37,12 +45,21 @@
 
             <nav class="nav-links" aria-label="Seções da página">
                 <a href="#como-funciona">Como Funciona</a>
-                <a href="#auditoria-svm">Exemplos Reais</a>
-                <a href="#documentacao">Nosso Trabalho</a>
-                <a href="#sobre-projeto">Sobre o Projeto</a>
+                <a href="#mascote">Mascote</a>
+                <a href="#ferramentas">Ferramentas</a>
+                <a href="#equipe">Equipe</a>
             </nav>
 
             <div class="nav-cta">
+                <button type="button" class="btn-theme-toggle" onclick="alternarTema()" aria-label="Alternar modo noturno">
+                    <span>Modo Noturno</span>
+                </button>
+                <a href="https://github.com/gui-gomes96/VerificaAI" target="_blank" rel="noopener noreferrer" class="btn-github-nav" title="Acessar repositório no GitHub">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                    <span>GitHub</span>
+                </a>
                 <a href="index.html" class="btn-header">Verificar Notícia</a>
             </div>
         </div>
@@ -52,7 +69,6 @@
         <!-- Primeira Dobra -->
         <section class="hero-section">
             <div class="hero-container">
-                <!-- Coluna Esquerda: Apresentação Clara + Campo de Pesquisa -->
                 <div class="hero-left">
                     <div class="kicker">COMBATE À DESINFORMAÇÃO COM TRANSPARÊNCIA</div>
                     
@@ -100,7 +116,7 @@
                         </div>
 
                         <div class="mascot-caption">
-                            <p class="mascot-quote">"Informação de verdade faz um mundo melhor."</p>
+                            <p class="mascot-quote">Dupla conferência antes de qualquer conclusão.</p>
                             <p class="mascot-desc">
                                 Nosso sistema não dá apenas um palpite: ele combina uma inteligência artificial treinada para reconhecer padrões de boatos com uma busca em tempo real nos portais de notícias.
                             </p>
@@ -125,7 +141,7 @@
             </div>
         </section>
 
-        <!-- Seção 2: Explicação Didática do Funcionamento (Incluindo o que é SVM) -->
+        <!-- Seção 1: Explicação Didática do Funcionamento -->
         <section id="como-funciona" class="methodology-section">
             <div class="section-inner split-layout">
                 <div class="split-sidebar">
@@ -139,7 +155,7 @@
                     </p>
 
                     <div class="mascot-guide-note">
-                        <img src="logo-verifica.png" alt="Avatar Verifica AI" class="mascot-mini-avatar">
+                        <img src="assets/capivaras/row-1-column-1.png" alt="Capivara Verifica AI aprovando transparência" class="mascot-mini-sticker" onerror="this.src='logo-verifica.png'">
                         <div>
                             <strong>Transparência Total</strong>
                             <span>Se o filtro matemático se enganar por causa de palavras alarmistas, o sistema avisa você na tela e explica o motivo.</span>
@@ -153,7 +169,10 @@
                     <article class="spec-row">
                         <div class="spec-index">PASSO 01</div>
                         <div class="spec-body">
-                            <h3>Entendimento da sua pergunta</h3>
+                            <div class="spec-title-with-sticker">
+                                <h3>Entendimento da sua pergunta</h3>
+                                <img src="assets/capivaras/row-1-column-2.png" alt="Capivara com fone e microfone" class="inline-capybara" onerror="this.style.display='none'">
+                            </div>
                             <p>
                                 Você pode digitar ou falar usando o microfone. O sistema organiza a frase principal e lembra o histórico da sua conversa para que você possa tirar dúvidas adicionais sem precisar repetir tudo.
                             </p>
@@ -173,7 +192,10 @@
                     <article class="spec-row">
                         <div class="spec-index">PASSO 03</div>
                         <div class="spec-body">
-                            <h3>Pesquisa em portais de notícias</h3>
+                            <div class="spec-title-with-sticker">
+                                <h3>Pesquisa em portais de notícias</h3>
+                                <img src="assets/capivaras/row-2-column-1.png" alt="Capivara conferindo notícia no celular" class="inline-capybara" onerror="this.style.display='none'">
+                            </div>
                             <p>
                                 Ao mesmo tempo, o sistema consulta veículos de imprensa confiáveis na internet para verificar o que os jornalistas estão publicando sobre aquele assunto naquele momento.
                             </p>
@@ -193,13 +215,16 @@
             </div>
         </section>
 
-        <!-- Seção 3: Exemplos Práticos -->
+        <!-- Seção 2: Exemplos Práticos -->
         <section id="auditoria-svm" class="comparison-section">
             <div class="section-inner">
-                <div class="section-top-header">
-                    <span class="section-eyebrow">02 / NA PRÁTICA</span>
-                    <h2>Como o sistema reage em dois casos diferentes</h2>
-                    <p>Veja por que cruzar inteligência artificial com reportagens reais evita erros comuns na verificação de notícias.</p>
+                <div class="section-top-header-row">
+                    <div class="section-top-header">
+                        <span class="section-eyebrow">02 / NA PRÁTICA</span>
+                        <h2>Como o sistema reage em dois casos diferentes</h2>
+                        <p>Veja por que cruzar inteligência artificial com reportagens reais evita erros comuns na verificação de notícias.</p>
+                    </div>
+                    <img src="assets/capivaras/row-3-column-3.png" alt="Capivara segurando documento de notícia verificada" class="section-corner-capybara" onerror="this.style.display='none'">
                 </div>
 
                 <div class="comparison-grid">
@@ -234,74 +259,245 @@
             </div>
         </section>
 
-        <!-- Seção de Galeria -->
-        <section id="documentacao" class="gallery-section">
+        <!-- Seção 3: Sobre Nosso Mascote -->
+        <section id="mascote" class="mascot-story-section">
             <div class="section-inner">
-                <div class="section-top-header">
-                    <span class="section-eyebrow">03 / NOSSO TRABALHO</span>
-                    <h2>Pesquisa e checagem baseadas em evidências</h2>
-                    <p>Cada verificação combina análise computacional e consulta documental para oferecer segurança a estudantes, professores e cidadãos.</p>
-                </div>
-
-                <div class="gallery-layout">
-                    <figure class="gallery-item-block feature-block">
-                        <div class="gallery-img-wrapper">
-                            <img src="assets/ambiente-checagem.jpg" alt="Estação de pesquisa com computadores, relatórios e gráficos de análise" class="gallery-img">
+                <div class="mascot-story-card">
+                    <div class="mascot-story-visual">
+                        <img src="logo-verifica.png" alt="Mascote Capivara Investigadora do Verifica AI">
+                        <div class="mascot-mini-gallery">
+                            <img src="assets/capivaras/row-1-column-3.png" alt="Capivara placa Verifica AI" onerror="this.style.display='none'">
+                            <img src="assets/capivaras/row-3-column-1.png" alt="Capivara guardiã da verdade" onerror="this.style.display='none'">
+                            <img src="assets/capivaras/row-4-column-3.png" alt="Capivara atenta" onerror="this.style.display='none'">
                         </div>
-                        <figcaption class="gallery-caption">
-                            <strong>AMBIENTE DE PESQUISA E CHECAGEM</strong> — Comparação de dados, análise de relatórios e cruzamento de informações em veículos de imprensa.
-                        </figcaption>
-                    </figure>
-
-                    <aside class="gallery-side-column">
-                        <figure class="gallery-item-block sub-block">
-                            <div class="gallery-img-wrapper small">
-                                <img src="assets/fake-news-teclado.jpg" alt="Sinalizador vermelho escrito Fake News sobre teclado de computador" class="gallery-img">
+                        <span class="mascot-tag-label">IDENTIDADE VISUAL OFICIAL</span>
+                    </div>
+                    <div class="mascot-story-content">
+                        <span class="section-eyebrow">03 / SOBRE NOSSO MASCOTE</span>
+                        <h2>Por que uma capivara investigadora representa o Verifica AI?</h2>
+                        <p>
+                            A capivara é um dos símbolos mais reconhecidos da fauna brasileira e carrega características essenciais para quem combate a desinformação: <strong>calma, observação atenta e convivência coletiva</strong>. Enquanto notícias falsas tentam provocar pânico e compartilhamento impulsivo, nossa mascote representa a pausa necessária para analisar os fatos com serenidade.
+                        </p>
+                        <p>
+                            Com seus óculos de leitura e a lupa de verificação, ela simboliza o método científico aplicado ao dia a dia: examinar cada afirmação de perto, cruzar evidências e só validar uma informação depois de comprovar sua origem.
+                        </p>
+                        <div class="mascot-traits">
+                            <div class="trait-box">
+                                <strong>Calma contra o pânico</strong>
+                                <span>Não se deixa levar por títulos sensacionalistas ou correntes urgentes.</span>
                             </div>
-                            <figcaption class="gallery-caption small">
-                                <strong>IDENTIFICAÇÃO DE BOATOS</strong> — Análise de mensagens alarmistas e correntes compartilhadas nas redes sociais.
-                            </figcaption>
-                        </figure>
-
-                        <div class="gallery-info-badge">
-                            <span class="info-eyebrow">COMPROVANTE OFICIAL</span>
-                            <h4>Laudo em PDF</h4>
-                            <p>Ao final de cada consulta, você pode baixar um relatório completo em PDF contendo o veredito, os percentuais da análise e os links de todas as notícias lidas.</p>
+                            <div class="trait-box">
+                                <strong>Olhar investigativo</strong>
+                                <span>A lupa e os óculos representam a leitura crítica e a busca por fontes reais.</span>
+                            </div>
+                            <div class="trait-box">
+                                <strong>Identidade nacional</strong>
+                                <span>Aproxima a ciência e a checagem de fatos da realidade do público brasileiro.</span>
+                            </div>
                         </div>
-                    </aside>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Seção 4: Apresentação Institucional -->
+        <!-- Seção 4: Galeria de Trabalho -->
+        <section id="documentacao" class="gallery-section">
+            <div class="section-inner">
+                <div class="section-top-header">
+                    <span class="section-eyebrow">04 / NOSSO TRABALHO</span>
+                    <h2>Pesquisa e checagem baseadas em evidências</h2>
+                    <p>Cada verificação combina análise computacional e consulta documental para oferecer segurança a estudantes, professores e cidadãos.</p>
+                </div>
+
+                <div class="gallery-compact-grid">
+                    <figure class="gallery-card-compact">
+                        <div class="gallery-thumb-box">
+                            <img src="assets/ambiente-checagem.jpg" alt="Estação de pesquisa com computadores, relatórios e gráficos de análise" class="gallery-img">
+                        </div>
+                        <figcaption class="gallery-caption">
+                            <strong>AMBIENTE DE PESQUISA E CHECAGEM</strong>
+                            <span>Comparação de dados, análise de relatórios e cruzamento de informações em veículos de imprensa.</span>
+                        </figcaption>
+                    </figure>
+
+                    <figure class="gallery-card-compact">
+                        <div class="gallery-thumb-box">
+                            <img src="assets/fake-news-teclado.jpg" alt="Sinalizador vermelho escrito Fake News sobre teclado de computador" class="gallery-img">
+                        </div>
+                        <figcaption class="gallery-caption">
+                            <strong>IDENTIFICAÇÃO DE BOATOS</strong>
+                            <span>Análise de mensagens alarmistas e correntes compartilhadas nas redes sociais.</span>
+                        </figcaption>
+                    </figure>
+
+                    <div class="gallery-pdf-card">
+                        <span class="info-eyebrow">COMPROVANTE OFICIAL</span>
+                        <h4>Laudo Técnico em PDF</h4>
+                        <p>Ao final de cada consulta, você pode baixar um relatório completo em PDF contendo o veredito, os percentuais da análise e os links de todas as notícias lidas.</p>
+                        <a href="index.html" class="btn-card-light">Testar no Verificador &rarr;</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção 5: Arquitetura e Ferramentas -->
+        <section id="ferramentas" class="tools-section">
+            <div class="section-inner">
+                <div class="section-top-header-row">
+                    <div class="section-top-header">
+                        <span class="section-eyebrow">05 / ARQUITETURA E FERRAMENTAS</span>
+                        <h2>Tecnologias que sustentam o Verifica AI</h2>
+                        <p>Organização das linguagens, bibliotecas e serviços utilizados em cada camada do sistema.</p>
+                    </div>
+                    <img src="assets/capivaras/row-4-column-1.png" alt="Capivara programando no notebook" class="section-corner-capybara" onerror="this.style.display='none'">
+                </div>
+
+                <div class="stack-table">
+                    <div class="stack-row">
+                        <div class="stack-layer">
+                            <span class="stack-code">CAMADA 01</span>
+                            <h3>Back-end &amp; Servidor</h3>
+                        </div>
+                        <div class="stack-details">
+                            <p>Orquestração das rotas de verificação, comunicação com o navegador e execução do pipeline de checagem.</p>
+                            <div class="stack-tags">
+                                <span class="tech-tag">Python 3</span>
+                                <span class="tech-tag">FastAPI</span>
+                                <span class="tech-tag">Uvicorn</span>
+                                <span class="tech-tag">Pydantic</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stack-row">
+                        <div class="stack-layer">
+                            <span class="stack-code">CAMADA 02</span>
+                            <h3>Inteligência Artificial &amp; Dados</h3>
+                        </div>
+                        <div class="stack-details">
+                            <p>Classificação estatística de padrões textuais combinada com análise de contexto e busca em portais de notícias.</p>
+                            <div class="stack-tags">
+                                <span class="tech-tag">Scikit-Learn (SVM)</span>
+                                <span class="tech-tag">TF-IDF Vectorizer</span>
+                                <span class="tech-tag">Joblib</span>
+                                <span class="tech-tag">Groq API (LLM)</span>
+                                <span class="tech-tag">Web Scraping / RSS</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stack-row">
+                        <div class="stack-layer">
+                            <span class="stack-code">CAMADA 03</span>
+                            <h3>Interface, Voz &amp; Documentação</h3>
+                        </div>
+                        <div class="stack-details">
+                            <p>Navegação responsiva, reconhecimento de fala nativo, histórico salvo por pesquisador e emissão de laudos A4.</p>
+                            <div class="stack-tags">
+                                <span class="tech-tag">HTML5 &amp; CSS3</span>
+                                <span class="tech-tag">JavaScript ES6+</span>
+                                <span class="tech-tag">Web Speech API</span>
+                                <span class="tech-tag">html2pdf.js</span>
+                                <span class="tech-tag">Git &amp; GitHub</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção 6: Equipe Desenvolvedora (Expediente Editorial) -->
+        <section id="equipe" class="team-section">
+            <div class="section-inner masthead-layout">
+                <div class="masthead-intro">
+                    <span class="section-eyebrow">06 / EXPEDIENTE DO PROJETO</span>
+                    <h2>Equipe e divisão de responsabilidades</h2>
+                    <p>
+                        O Verifica AI foi estruturado de forma colaborativa, dividindo o desenvolvimento entre engenharia de back-end, inteligência artificial, testes de interface e design.
+                    </p>
+                    <div class="masthead-sticker-box">
+                        <img src="assets/capivaras/row-2-column-3.png" alt="Capivara guardiã da equipe Verifica AI" onerror="this.style.display='none'">
+                        <span>Trabalho conjunto entre código, dados e design.</span>
+                    </div>
+                </div>
+
+                <div class="masthead-list">
+                    <article class="masthead-item">
+                        <div class="masthead-person">
+                            <span class="person-num">01</span>
+                            <div>
+                                <h3>Guilherme Matheus Andrade Gomes</h3>
+                                <span class="person-role">Sistema de API, Machine Learning &amp; Back-end</span>
+                            </div>
+                        </div>
+                        <p class="person-summary">
+                            Desenvolvimento do servidor FastAPI, treinamento e integração do modelo SVM, arquitetura do pipeline híbrido e emissão de laudos.
+                        </p>
+                    </article>
+
+                    <article class="masthead-item">
+                        <div class="masthead-person">
+                            <span class="person-num">02</span>
+                            <div>
+                                <h3>Carlos Henrique Bertotti Mendes</h3>
+                                <span class="person-role">Front-end &amp; Testes</span>
+                            </div>
+                        </div>
+                        <p class="person-summary">
+                            Construção das telas web, integração visual entre a página inicial e o verificador, além de testes funcionais de fluxo.
+                        </p>
+                    </article>
+
+                    <article class="masthead-item">
+                        <div class="masthead-person">
+                            <span class="person-num">03</span>
+                            <div>
+                                <h3>Kaue Costa Paixão</h3>
+                                <span class="person-role">Front-end &amp; Testes</span>
+                            </div>
+                        </div>
+                        <p class="person-summary">
+                            Refinamento da interface de usuário, responsividade e validação das respostas do sistema em cenários reais de checagem.
+                        </p>
+                    </article>
+
+                    <article class="masthead-item">
+                        <div class="masthead-person">
+                            <span class="person-num">04</span>
+                            <div>
+                                <h3>Marcelo Oliveira de Paula</h3>
+                                <span class="person-role">Gestor de Design de Modelos</span>
+                            </div>
+                        </div>
+                        <p class="person-summary">
+                            Gestão visual dos modelos, criação da identidade gráfica, direção artística da mascote capivara e materiais de apresentação.
+                        </p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Seção 7: Código Aberto / GitHub -->
         <section id="sobre-projeto" class="institutional-section">
             <div class="section-inner">
                 <div class="institutional-box">
                     <div class="institutional-emblem">
-                        <img src="logo-verifica.png" alt="Emblema oficial Verifica AI">
+                        <img src="assets/capivaras/row-4-column-2.png" alt="Capivara Verifica AI com selo de verificação" onerror="this.src='logo-verifica.png'">
                     </div>
                     <div class="institutional-text">
-                        <span class="section-eyebrow">04 / SOBRE O PROJETO</span>
+                        <span class="section-eyebrow">07 / CÓDIGO ABERTO E DOCUMENTAÇÃO</span>
                         <h2>Informação de verdade faz um mundo melhor.</h2>
                         <p>
-                            O <strong>Verifica AI</strong> nasceu com o propósito de tornar a checagem de fatos simples, transparente e acessível para qualquer pessoa. Em vez de pedir que você apenas confie na resposta da máquina, mostramos exatamente quais jornais foram consultados e como chegamos a cada conclusão.
+                            Todo o código-fonte do <strong>Verifica AI</strong>, incluindo os scripts de treinamento do modelo SVM, o servidor FastAPI e a interface web, está disponível para consulta e avaliação no nosso repositório oficial no GitHub.
                         </p>
-                        <div class="institutional-specs">
-                            <div>
-                                <strong>Tecnologia</strong>
-                                <span>Inteligência Artificial + Busca Web</span>
-                            </div>
-                            <div>
-                                <strong>Comprovante</strong>
-                                <span>Laudo gratuito em PDF</span>
-                            </div>
-                            <div>
-                                <strong>Facilidade de Uso</strong>
-                                <span>Pesquisa por texto ou por voz</span>
-                            </div>
-                        </div>
-                        <div class="institutional-cta">
+                        <div class="institutional-cta-row">
                             <a href="index.html" class="btn-solid-navy">Começar a Verificar Agora</a>
+                            <a href="https://github.com/gui-gomes96/VerificaAI" target="_blank" rel="noopener noreferrer" class="btn-outline-github">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                                </svg>
+                                <span>Ver Código no GitHub</span>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -325,12 +521,13 @@
                     <a href="inicio.html">Página Inicial</a>
                     <a href="index.html">Verificar Notícia</a>
                     <a href="#como-funciona">Como Funciona</a>
+                    <a href="#mascote">Sobre o Mascote</a>
                 </div>
                 <div class="footer-col">
-                    <h4>Recursos</h4>
-                    <a href="#como-funciona">O que é SVM</a>
-                    <a href="#auditoria-svm">Exemplos Reais</a>
-                    <a href="#documentacao">Laudo em PDF</a>
+                    <h4>Projeto</h4>
+                    <a href="#ferramentas">Ferramentas Usadas</a>
+                    <a href="#equipe">Equipe Desenvolvedora</a>
+                    <a href="https://github.com/gui-gomes96/VerificaAI" target="_blank" rel="noopener noreferrer">Repositório GitHub</a>
                 </div>
             </div>
         </div>

@@ -3,60 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
-    <title>VERIFICA.AI - Agente Híbrido com Transparência Total</title>
-    <script src="js/html2pdf.bundle.min.js"></script>
-    <script src="https://cloudflare.com"></script>
-=======
-    <title>Verifica AI — Ambiente de Checagem de Fatos</title>
+    <title>Verifica AI — Painel de Checagem de Fatos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,600;0,6..72,700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const salvo = localStorage.getItem("verifica_ai_tema");
+            const prefereEscuro = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const temaInicial = salvo ? salvo : (prefereEscuro ? "dark" : "light");
+            document.documentElement.setAttribute("data-theme", temaInicial);
+        })();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
->>>>>>> 0379ef2 (Home do site versão provisoria test)
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div class="container">
-<<<<<<< HEAD
-    <div class="app-header">
-        <div>
-            <h1>VERIFICA.AI</h1>
-            <p class="subtitle">Arquitetura Híbrida: IA Generativa + Machine Learning (SVM) + Web Scraping</p>
-        </div>
-        <span id="statusApi" class="status-badge offline">● Conectando...</span>
-=======
-    <div class="top-header">
-        <a href="inicio.html" class="brand-link" title="Voltar para a Página Inicial">
-            <div class="header-logo-badge">
-                <img src="assets/logo-nome.png" alt="Logo Verifica AI" class="header-logo-wordmark">
+    <!-- Faixa Superior de Telemetria -->
+    <div class="telemetry-bar">
+        <div class="telemetry-inner">
+            <span class="telemetry-label">AMBIENTE DE AUDITORIA FACTUAL E CHECAGEM</span>
+            <div class="telemetry-right">
+                <span class="telemetry-tech">FILTRO SVM + BUSCA EM PORTAIS DE NOTÍCIAS</span>
+                <div id="statusApi" class="status-indicator offline" title="Estado de conexão com o backend FastAPI">
+                    <span class="status-dot"></span>
+                    <span id="statusTexto">Verificando sistema...</span>
+                </div>
             </div>
-            <p class="subtitle">Arquitetura Híbrida: Análise Contextual + Machine Learning (SVM) + Web Scraping</p>
-        </a>
-        <a href="inicio.html" class="btn-home-nav">Página Inicial</a>
->>>>>>> 0379ef2 (Home do site versão provisoria test)
+        </div>
     </div>
 
-    <div class="user-bar">
-        <label for="nomeUsuario" style="font-size: 13px; color: #94a3b8; font-weight: 600;">Identificação do Pesquisador:</label>
-        <input type="text" id="nomeUsuario" placeholder="Digite seu nome (Ex: Guilherme)" onblur="trocarUsuario()" onkeypress="verificarEnterUsuario(event)">
+    <!-- Container Principal -->
+    <div class="app-shell">
+        <header class="top-header">
+            <a href="inicio.html" class="brand-link" title="Voltar para a Página Inicial">
+                <img src="assets/logo-nome.png" alt="Logo Verifica AI" class="header-logo-wordmark">
+                <span class="brand-divider" aria-hidden="true"></span>
+                <div class="brand-desc-box">
+                    <span class="brand-tag">PAINEL DE VERIFICAÇÃO</span>
+                    <p class="subtitle">Análise Contextual + Modelo Estatístico (SVM) + Fontes da Imprensa</p>
+                </div>
+            </a>
+
+            <div class="header-actions">
+                <button type="button" class="btn-theme-toggle" onclick="alternarTema()" aria-label="Alternar modo noturno">
+                    <span>Modo Noturno</span>
+                </button>
+                <a href="inicio.html" class="btn-home-nav">&larr; Página Inicial</a>
+            </div>
+        </header>
+
+        <!-- Barra de Identificação do Pesquisador -->
+        <div class="user-bar">
+            <div class="user-bar-left">
+                <img src="assets/capivaras/row-1-column-1.png" alt="Mascote Verifica AI" class="user-capybara-icon" onerror="this.src='logo-verifica.png'">
+                <label for="nomeUsuario">Pesquisador ativo:</label>
+            </div>
+            <input 
+                type="text" 
+                id="nomeUsuario" 
+                placeholder="Digite seu nome para salvar seu histórico (Ex: Guilherme)" 
+                onblur="trocarUsuario()" 
+                onkeypress="verificarEnterUsuario(event)"
+            >
+        </div>
+
+        <!-- Área de Mensagens e Pareceres -->
+        <main class="chat-container" id="chatContainer" aria-live="polite"></main>
+
+        <!-- Barra de Entrada (Texto, Voz e Controles) -->
+        <footer class="composer-area">
+            <div class="input-group">
+                <textarea 
+                    id="campoTexto" 
+                    placeholder="Cole uma manchete ou escreva a afirmação que deseja verificar..." 
+                    onkeydown="checarEnter(event)"
+                ></textarea>
+                
+                <div class="composer-buttons">
+                    <button type="button" id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Falar no microfone">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                        <span>Voz</span>
+                    </button>
+
+                    <button type="button" onclick="limparConversa()" class="btn-limpar" title="Limpar histórico desta sessão">
+                        Limpar
+                    </button>
+
+                    <button type="button" onclick="enviarMensagem()" id="btnEnviar" class="btn-enviar">
+                        <span>Verificar</span>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="composer-hint">
+                <span>Pressione <strong>Enter</strong> para enviar ou <strong>Shift + Enter</strong> para quebrar linha.</span>
+                <span>Laudos em PDF disponíveis ao final de cada análise.</span>
+            </div>
+        </footer>
     </div>
 
-    <div class="chat-container" id="chatContainer"></div>
-
-    <div class="input-group">
-<<<<<<< HEAD
-        <textarea id="campoTexto" placeholder="Digite a afirmação que deseja checar..." onkeydown="checarEnter(event)"></textarea>
-        
-        <button id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Falar">🎙️</button>
-=======
-        <textarea id="campoTexto" placeholder="Digite a afirmação que deseja verificar..." onkeydown="checarEnter(event)"></textarea>
-        <button id="btnVoz" onclick="iniciarReconhecimentoVoz()" class="btn-voz" title="Entrada por Voz">Voz</button>
->>>>>>> 0379ef2 (Home do site versão provisoria test)
-        <button onclick="enviarMensagem()" id="btnEnviar">Enviar</button>
-        <button onclick="limparConversa()" class="btn-limpar" title="Limpar Histórico da Sessão">Limpar</button>
-    </div>
-</div>
-
-<script src="js/script.js"></script>
+    <script src="js/script.js"></script>
 
 </body>
 </html>
