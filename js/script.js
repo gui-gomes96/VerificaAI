@@ -5,6 +5,7 @@ let visitanteId = "";
 let conversasSalvas = [];
 let conversaAtivaId = null;
 let usuarioAtual = "Visitante";
+let iaRespondendo = false; // Trava anti-spam enquanto a IA processa ou digita
 
 // ==========================================================================
 // 1. SISTEMA DE COOKIE ANÔNIMO (IDENTIFICAÇÃO LOCAL SEM LOGIN)
@@ -161,7 +162,6 @@ async function verificarStatusServidor() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-
         const resposta = await fetch(`${API_BASE_URL}/health`, {
             signal: controller.signal
         });
@@ -245,6 +245,8 @@ function obterConversaAtiva() {
 }
 
 function criarNovaConversa(fecharMenuMobile = true) {
+    if (iaRespondendo) return;
+
     const agora = new Date();
     const horaFmt = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const nova = {
@@ -268,6 +270,8 @@ function criarNovaConversa(fecharMenuMobile = true) {
 }
 
 function selecionarConversa(id) {
+    if (iaRespondendo) return;
+
     conversaAtivaId = id;
     salvarEstadoConversas();
     renderizarListaConversas();
@@ -277,6 +281,8 @@ function selecionarConversa(id) {
 
 function excluirConversa(event, id) {
     event.stopPropagation();
+    if (iaRespondendo && id === conversaAtivaId) return;
+
     conversasSalvas = conversasSalvas.filter((c) => c.id !== id);
 
     if (conversasSalvas.length === 0) {
@@ -294,6 +300,7 @@ function excluirConversa(event, id) {
 }
 
 function apagarTodoHistorico() {
+    if (iaRespondendo) return;
     if (!confirm("Deseja apagar todas as verificações salvas neste aparelho?")) return;
     conversasSalvas = [];
     criarNovaConversa(true);
@@ -401,9 +408,33 @@ function renderizarChat() {
 }
 
 // ==========================================================================
-// 7. VOZ, DIGITAÇÃO E SUGESTÕES
+// 7. TRAVA ANTI-SPAM, VOZ, DIGITAÇÃO E SUGESTÕES
 // ==========================================================================
+function definirEstadoEnvio(ocupado) {
+    iaRespondendo = ocupado;
+    const btnEnviar = document.getElementById("btnEnviar");
+    const btnVoz = document.getElementById("btnVoz");
+    const btnNova = document.querySelector(".btn-new-chat");
+
+    if (btnEnviar) {
+        btnEnviar.disabled = ocupado;
+        const spanEnviar = btnEnviar.querySelector("span");
+        if (spanEnviar) {
+            spanEnviar.textContent = ocupado ? "Aguarde..." : "Verificar";
+        }
+    }
+    if (btnVoz) {
+        btnVoz.disabled = ocupado;
+    }
+    if (btnNova) {
+        btnNova.disabled = ocupado;
+        btnNova.style.opacity = ocupado ? "0.6" : "1";
+    }
+}
+
 function iniciarReconhecimentoVoz() {
+    if (iaRespondendo) return;
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
         alert("Este navegador não suporta reconhecimento de voz nativo. Utilize o Google Chrome ou Edge.");
@@ -439,6 +470,7 @@ function efeitoDigitacaoSeguro(elementoHtml, htmlCompleto, velocidade, callback)
     let i = 0;
     let isTag = false;
     let textoAtual = "";
+    const chatContainer = document.getElementById("chatContainer");
 
     function digitar() {
         if (i < htmlCompleto.length) {
@@ -453,6 +485,9 @@ function efeitoDigitacaoSeguro(elementoHtml, htmlCompleto, velocidade, callback)
             if (isTag) {
                 digitar();
             } else {
+                if (chatContainer && i % 15 === 0) {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
                 setTimeout(digitar, velocidade);
             }
         } else if (callback) {
@@ -480,6 +515,7 @@ function adicionarRespostasRapidas() {
 }
 
 function usarSugestao(texto, idParaRemover) {
+    if (iaRespondendo) return;
     const el = document.getElementById(idParaRemover);
     if (el) el.remove();
     document.getElementById("campoTexto").value = texto;
@@ -704,7 +740,9 @@ function baixarLaudoPDF(idMensagem) {
 function checarEnter(event) {
     if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
-        enviarMensagem();
+        if (!iaRespondendo) {
+            enviarMensagem();
+        }
     }
 }
 
@@ -776,15 +814,19 @@ function construirHTMLTransparencia(dados, idCard, perguntaOrigem = "", textoIni
 }
 
 async function enviarMensagem() {
+    if (iaRespondendo) return;
+
     const campo = document.getElementById("campoTexto");
     const texto = campo.value.trim();
     const chatContainer = document.getElementById("chatContainer");
-    const botao = document.getElementById("btnEnviar");
 
     if (!texto) return;
 
     const ativa = obterConversaAtiva();
     if (!ativa) return;
+
+    // Bloqueia imediatamente novos envios até a resposta e a digitação terminarem
+    definirEstadoEnvio(true);
 
     // Atualiza o título da conversa na barra lateral com a primeira pergunta
     if (ativa.mensagens.length === 0) {
@@ -803,7 +845,6 @@ async function enviarMensagem() {
         `<div class="message ai pensando" id="${idTemp}">[01s] Iniciando triagem inteligente...</div>`
     );
     chatContainer.scrollTop = chatContainer.scrollHeight;
-    botao.disabled = true;
 
     let segundos = 1;
     const timerInterval = setInterval(() => {
@@ -866,19 +907,21 @@ async function enviarMensagem() {
         salvarEstadoConversas();
         renderizarListaConversas();
 
+        // Só destrava o envio depois que a animação de digitação terminar
+        const finalizarResposta = () => {
+            adicionarRespostasRapidas();
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            definirEstadoEnvio(false);
+            campo.focus();
+        };
+
         if (dados.origem === "agente_verificacao" || dados.origem === "fallback_estatistico") {
             cardMensagem.innerHTML = construirHTMLTransparencia(dados, idTemp, texto);
             const divTexto = cardMensagem.querySelector(".texto-veredito");
-            efeitoDigitacaoSeguro(divTexto, formatarTextoIA(dados.texto), 12, () => {
-                adicionarRespostasRapidas();
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            });
+            efeitoDigitacaoSeguro(divTexto, formatarTextoIA(dados.texto), 12, finalizarResposta);
         } else {
             cardMensagem.innerHTML = "";
-            efeitoDigitacaoSeguro(cardMensagem, formatarTextoIA(dados.texto), 15, () => {
-                adicionarRespostasRapidas();
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            });
+            efeitoDigitacaoSeguro(cardMensagem, formatarTextoIA(dados.texto), 15, finalizarResposta);
         }
     } catch (erro) {
         clearTimeout(timeoutId);
@@ -888,8 +931,7 @@ async function enviarMensagem() {
             cardErro.classList.remove("pensando");
             cardErro.innerHTML = `<span style="color: #ef4444;">Não foi possível conectar ao servidor VERIFICA.AI (${escaparHTML(erro.message)}). Verifique se o backend está rodando.</span>`;
         }
-    } finally {
-        botao.disabled = false;
+        definirEstadoEnvio(false);
         campo.focus();
     }
 }
