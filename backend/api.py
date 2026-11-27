@@ -2,6 +2,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import os
 import csv
 import joblib
@@ -30,14 +32,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Lê o token com segurança do ambiente (.env local ou painel da hospedagem)
+# Lê o token principal e o token reserva com segurança do ambiente (.env local ou painel da hospedagem)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_API_KEY_RESERVA = os.getenv("GROQ_API_KEY_RESERVA", "").strip()
+
 if not GROQ_API_KEY:
     logger.warning("GROQ_API_KEY não encontrada nas variáveis de ambiente! Configure o arquivo .env ou o painel da nuvem.")
 
-client = Groq(api_key=GROQ_API_KEY)
+client_principal = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+client_reserva = Groq(api_key=GROQ_API_KEY_RESERVA) if GROQ_API_KEY_RESERVA else None
 
 MODELO_GROQ = "openai/gpt-oss-120b"
+
+
+def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float):
+    """Usa o token principal; caso falhe ou atinja o limite de requisições, aciona o token reserva automaticamente."""
+    if client_principal:
+        try:
+            return client_principal.chat.completions.create(
+                model=MODELO_GROQ,
+                messages=mensagens,
+                temperature=temperatura,
+                response_format={"type": "json_object"},
+            )
+        except Exception as erro_principal:
+            logger.warning(f"Falha no token principal da Groq ({erro_principal}). Acionando token reserva...")
+            if client_reserva:
+                return client_reserva.chat.completions.create(
+                    model=MODELO_GROQ,
+                    messages=mensagens,
+                    temperature=temperatura,
+                    response_format={"type": "json_object"},
+                )
+            raise erro_principal
+
+    if client_reserva:
+        return client_reserva.chat.completions.create(
+            model=MODELO_GROQ,
+            messages=mensagens,
+            temperature=temperatura,
+            response_format={"type": "json_object"},
+        )
+
+    raise RuntimeError("Nenhum token da Groq (principal ou reserva) está configurado.")
+
 
 instrucoes_triagem = """
 Você é o motor de triagem de dados do sistema VERIFICA.AI.
@@ -131,6 +169,7 @@ def verificar_saude():
     return {
         "status": "online",
         "svm_carregado": modelo_ia is not None and vetorizador_ia is not None,
+        "token_reserva_configurado": client_reserva is not None,
     }
 
 
@@ -181,12 +220,7 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
     mensagens_finais.append({"role": "user", "content": prompt_final})
 
     try:
-        resposta_groq = client.chat.completions.create(
-            model=MODELO_GROQ,
-            messages=mensagens_finais,
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
+        resposta_groq = chamar_groq_com_fallback(mensagens_finais, temperatura=0.2)
 
         dados_json = json.loads(resposta_groq.choices[0].message.content)
         texto_final = dados_json.get("texto_final", "Análise concluída com sucesso.")
@@ -228,12 +262,7 @@ def conversar_com_agente(req: RequisicaoChat):
     mensagens_triagem.append({"role": "user", "content": req.mensagem})
 
     try:
-        resposta_groq = client.chat.completions.create(
-            model=MODELO_GROQ,
-            messages=mensagens_triagem,
-            temperature=0.1,
-            response_format={"type": "json_object"},
-        )
+        resposta_groq = chamar_groq_com_fallback(mensagens_triagem, temperatura=0.1)
 
         decisao = json.loads(resposta_groq.choices[0].message.content)
 
@@ -253,32 +282,31 @@ def conversar_com_agente(req: RequisicaoChat):
         return resultado_fallback
 
 
-if __name__ == "__main__":
-    import uvicorn
-    porta = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=porta)
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
-# Páginas HTML (responde tanto na raiz / quanto em /index.html)
+# ==========================================================================
+# ROTAS ESTÁTICAS E PÁGINAS DO FRONT-END
+# ==========================================================================
 @app.get("/")
 @app.get("/index.html")
 def pagina_inicial():
     return FileResponse("index.html")
+
 
 @app.get("/chat.html")
 def pagina_chat():
     return FileResponse("chat.html")
 
 
-# Imagem na raiz
 @app.get("/logo-verifica.png")
 def logo():
     return FileResponse("logo-verifica.png")
 
-# Pastas públicas do front-end
+
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/js", StaticFiles(directory="js"), name="js")
 
+
+if __name__ == "__main__":
+    import uvicorn
+    porta = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=porta)
