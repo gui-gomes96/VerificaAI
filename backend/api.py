@@ -23,7 +23,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
 
-app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="21.0")
+app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="22.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,7 +32,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Lê o token principal e o token reserva com segurança do ambiente (.env local ou painel da hospedagem)
+# Lê o token principal e o token reserva com segurança do ambiente (.env local ou painel do Render)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 GROQ_API_KEY_RESERVA = os.getenv("GROQ_API_KEY_RESERVA", "").strip()
 
@@ -43,38 +43,35 @@ client_principal = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 client_reserva = Groq(api_key=GROQ_API_KEY_RESERVA) if GROQ_API_KEY_RESERVA else None
 
 MODELO_GROQ = "openai/gpt-oss-120b"
+MODELO_GROQ_BACKUP = "llama-3.3-70b-versatile"
 
 
 def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float):
-    """Usa o token principal; caso falhe ou atinja o limite de requisições, aciona o token reserva automaticamente."""
+    """Tenta chave principal -> chave reserva -> modelo secundário antes de entrar em contingência."""
+    tentativas = []
     if client_principal:
+        tentativas.append((client_principal, MODELO_GROQ, "principal"))
+    if client_reserva:
+        tentativas.append((client_reserva, MODELO_GROQ, "reserva"))
+    if client_principal:
+        tentativas.append((client_principal, MODELO_GROQ_BACKUP, "principal_backup"))
+    if client_reserva:
+        tentativas.append((client_reserva, MODELO_GROQ_BACKUP, "reserva_backup"))
+
+    ultimo_erro = None
+    for cliente, modelo, origem_chave in tentativas:
         try:
-            return client_principal.chat.completions.create(
-                model=MODELO_GROQ,
+            return cliente.chat.completions.create(
+                model=modelo,
                 messages=mensagens,
                 temperature=temperatura,
                 response_format={"type": "json_object"},
             )
-        except Exception as erro_principal:
-            logger.warning(f"Falha no token principal da Groq ({erro_principal}). Acionando token reserva...")
-            if client_reserva:
-                return client_reserva.chat.completions.create(
-                    model=MODELO_GROQ,
-                    messages=mensagens,
-                    temperature=temperatura,
-                    response_format={"type": "json_object"},
-                )
-            raise erro_principal
+        except Exception as erro:
+            ultimo_erro = erro
+            logger.warning(f"Falha na rota [{origem_chave} | {modelo}]: {erro}. Tentando próxima rota...")
 
-    if client_reserva:
-        return client_reserva.chat.completions.create(
-            model=MODELO_GROQ,
-            messages=mensagens,
-            temperature=temperatura,
-            response_format={"type": "json_object"},
-        )
-
-    raise RuntimeError("Nenhum token da Groq (principal ou reserva) está configurado.")
+    raise ultimo_erro or RuntimeError("Nenhum token da Groq (principal ou reserva) está configurado.")
 
 
 instrucoes_triagem = """
@@ -145,6 +142,9 @@ DATA DE REFERÊNCIA DO SISTEMA: {data_hoje}
   - Se o SVM apontar alta probabilidade de verdadeiro (> 60%), mas as fontes desmentirem a alegação, marque "modelo_errou": true e explique que o boato utilizou estrutura formal semelhante à jornalística.
 3. CRITÉRIO DE INCONCLUSIVO:
   - Use "INCONCLUSIVO" apenas quando não houver fontes jornalísticas suficientes na busca e a afirmação não puder ser confirmada nem refutada com segurança. Nunca chute um veredito sem base.
+4. NEUTRALIDADE POLÍTICA E FIGURAS PÚBLICAS:
+  - Mantenha rigorosa imparcialidade política e partidária. Nunca emita opiniões pessoais ou juízos morais sobre políticos, partidos ou governos.
+  - Em boatos sobre a vida pessoal ou declarações atribuídas a figuras públicas, baseie-se exclusivamente em registros públicos, biografias oficiais e checagens da imprensa. Se não houver nenhuma evidência factual que sustente o boato, classifique como "FALSO" (quando já desmentido ou sem qualquer base real) ou "INCONCLUSIVO" (quando não houver registros verificáveis), explicando de forma objetiva.
 </diretrizes_analise>
 
 <regras_redacao>
@@ -181,6 +181,7 @@ except Exception as e:
 # COLETA ANÔNIMA DE DADOS PARA APRENDIZADO CONTÍNUO DO SVM
 # ==========================================================================
 CAMINHO_COLETA_CSV = "modelo/dataset_coletado_evento.csv"
+
 
 def registrar_dado_anonimo(frase: str, fato_real: str, p_verdade: float, p_falso: float, origem_registro: str = "checagem"):
     if not frase or len(frase.strip()) < 12 or fato_real not in ["VERDADEIRO", "FALSO"]:
@@ -232,6 +233,8 @@ def verificar_saude():
 def registrar_feedback_visitante(req: RequisicaoFeedback):
     veredito = req.veredito_exibido.upper().strip()
     avaliacao = req.avaliacao.lower().strip()
+
+    logger.info(f"FEEDBACK_EVENTO | Avaliacao: {avaliacao} | Veredito: {veredito} | Texto: {req.texto_afirmacao}")
 
     if veredito in ["VERDADEIRO", "FALSO"]:
         rotulo_final = veredito if avaliacao == "preciso" else (
@@ -288,7 +291,19 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
 
     except Exception as e:
         logger.error(f"Erro na Groq API (resposta final): {e}")
-        texto_final = f"A análise estatística apontou {p_falso}% de alerta com base em {len(noticias)} fontes coletadas."
+        if noticias:
+            manchetes = "; ".join([n.get("titulo", "") for n in noticias[:3] if n.get("titulo")])
+            texto_final = (
+                f"O filtro estatístico SVM apontou {p_falso}% de semelhança com padrões de desinformação "
+                f"e {p_verdade}% de veracidade. Na busca em tempo real, foram localizadas {len(noticias)} "
+                f"reportagens relacionadas, incluindo: {manchetes}. Recomenda-se consultar os links abaixo "
+                f"na auditoria técnica para conferir o contexto completo."
+            )
+        else:
+            texto_final = (
+                f"O filtro estatístico SVM apontou {p_falso}% de alerta para padrões de desinformação, "
+                f"mas não foram encontradas reportagens suficientes na busca para confirmar ou refutar a afirmação."
+            )
         modelo_errou = False
         fato_real = "INCONCLUSIVO"
         motivo_erro = ""
@@ -313,6 +328,17 @@ def conversar_com_agente(req: RequisicaoChat):
     logger.info(f"Usuário disse: {req.mensagem}")
 
     texto_lower = req.mensagem.lower().strip()
+
+    # 0. Resposta rápida para saudações simples (economiza cota de tokens da Groq)
+    saudacoes = ["oi", "ola", "olá", "bom dia", "boa tarde", "boa noite", "eai", "e ai", "ol\\"]
+    if texto_lower.rstrip("!?.,") in saudacoes:
+        return {
+            "origem": "agente_dialogo",
+            "texto": (
+                "Olá! Sou o VERIFICA.AI. Cole aqui qualquer notícia, manchete ou corrente "
+                "de internet que você queira checar se é verdadeira ou falsa."
+            ),
+        }
 
     # 1. Resposta rápida e blindada sobre identidade e criadores
     perguntas_identidade = [
