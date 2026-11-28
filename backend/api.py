@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+import re
 import csv
 import joblib
 import json
@@ -23,7 +24,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
 
-app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="22.0")
+app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="23.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,6 +45,26 @@ client_reserva = Groq(api_key=GROQ_API_KEY_RESERVA) if GROQ_API_KEY_RESERVA else
 
 MODELO_GROQ = "openai/gpt-oss-120b"
 MODELO_GROQ_BACKUP = "llama-3.3-70b-versatile"
+
+
+def extrair_tempo_espera_groq(erro_texto: str) -> str:
+    """Lê 'Please try again in XmYs' da mensagem de erro da Groq e converte para português."""
+    match = re.search(r"try again in\s+(?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", str(erro_texto))
+    if not match:
+        return "alguns minutos"
+
+    horas, minutos, segundos = match.groups()
+    partes = []
+    if horas and int(horas) > 0:
+        partes.append(f"{int(horas)} hora(s)")
+    if minutos and int(minutos) > 0:
+        partes.append(f"{int(minutos)} minuto(s)")
+    if segundos:
+        seg_int = max(1, round(float(segundos)))
+        if not partes:  # Mostra segundos apenas se for menos de 1 minuto
+            partes.append(f"{seg_int} segundo(s)")
+
+    return " e ".join(partes) if partes else "alguns minutos"
 
 
 def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float):
@@ -265,10 +286,20 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
         except Exception as e:
             logger.error(f"Erro ao rodar predição do modelo SVM local: {e}")
 
+    # Envia no máximo 5 notícias resumidas para economizar tokens e evitar limite por minuto da Groq
+    noticias_resumidas = [
+        {
+            "titulo": n.get("titulo", ""),
+            "fonte": n.get("fonte", ""),
+            "resumo": (n.get("resumo") or n.get("conteudo") or "")[:300],
+        }
+        for n in noticias[:5]
+    ]
+
     prompt_final = f'''
     Fato investigado (já com contexto deduzido): "{frase_alvo}".
     Cálculo estatístico do modelo SVM: {p_verdade}% de Veracidade e {p_falso}% de Desinformação.
-    Notícias extraídas da web para cruzamento: {json.dumps(noticias, ensure_ascii=False)}.
+    Notícias extraídas da web para cruzamento: {json.dumps(noticias_resumidas, ensure_ascii=False)}.
     
     Analise os dados, verifique se o modelo SVM errou na avaliação e escreva o veredito final em JSON. Lembre-se do histórico da conversa para manter a coesão.
     '''
@@ -291,22 +322,29 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
 
     except Exception as e:
         logger.error(f"Erro na Groq API (resposta final): {e}")
+        tempo_retorno = extrair_tempo_espera_groq(str(e))
+        aviso_limite = (
+            f"Aviso de Capacidade: O limite temporário de consultas da inteligência artificial foi atingido. "
+            f"A análise completa voltará ao normal em aproximadamente {tempo_retorno}."
+        )
+
         if noticias:
             manchetes = "; ".join([n.get("titulo", "") for n in noticias[:3] if n.get("titulo")])
             texto_final = (
-                f"O filtro estatístico SVM apontou {p_falso}% de semelhança com padrões de desinformação "
-                f"e {p_verdade}% de veracidade. Na busca em tempo real, foram localizadas {len(noticias)} "
-                f"reportagens relacionadas, incluindo: {manchetes}. Recomenda-se consultar os links abaixo "
-                f"na auditoria técnica para conferir o contexto completo."
+                f"{aviso_limite}\n\n"
+                f"Enquanto isso, o filtro estatístico local (SVM) apontou {p_falso}% de semelhança com padrões "
+                f"de desinformação e {p_verdade}% de veracidade. Na busca em tempo real, foram localizadas "
+                f"{len(noticias)} reportagens relacionadas, incluindo: {manchetes}."
             )
         else:
             texto_final = (
-                f"O filtro estatístico SVM apontou {p_falso}% de alerta para padrões de desinformação, "
-                f"mas não foram encontradas reportagens suficientes na busca para confirmar ou refutar a afirmação."
+                f"{aviso_limite}\n\n"
+                f"Enquanto isso, o filtro estatístico local (SVM) apontou {p_falso}% de alerta para padrões "
+                f"de desinformação, mas não foram encontradas reportagens suficientes na busca."
             )
         modelo_errou = False
         fato_real = "INCONCLUSIVO"
-        motivo_erro = ""
+        motivo_erro = f"Limite de requisições atingido. Retorno previsto em {tempo_retorno}."
 
     return {
         "origem": "agente_verificacao",
