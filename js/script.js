@@ -124,7 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const paramsUrl = new URLSearchParams(window.location.search);
         const consultaInicial = paramsUrl.get("q");
         if (consultaInicial && document.getElementById("campoTexto")) {
-            // Cria uma nova conversa limpa se vier da busca da Home
             const ativa = obterConversaAtiva();
             if (ativa && ativa.mensagens.length > 0) {
                 criarNovaConversa(false);
@@ -138,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================================================
-// 4. FUNÇÕES DA PÁGINA INICIAL (inicio.html)
+// 4. FUNÇÕES DA PÁGINA INICIAL (index.html)
 // ==========================================================================
 function configurarNavbarScroll() {
     const navbar = document.getElementById("navbar");
@@ -232,7 +231,6 @@ function inicializarGerenciadorConversas() {
 }
 
 function salvarEstadoConversas() {
-    // Mantém no máximo as 30 conversas mais recentes no aparelho
     conversasSalvas = conversasSalvas.slice(0, 30);
     localStorage.setItem(chaveStorageConversas(), JSON.stringify(conversasSalvas));
     if (conversaAtivaId) {
@@ -393,7 +391,7 @@ function renderizarChat() {
                 );
                 chatContainer.insertAdjacentHTML(
                     "beforeend",
-                    `<div class="message ai history" id="${idHist}">${htmlCard}</div>`
+                    `<div class="message ai history" id="${idHist}" data-afirmacao="${escaparHTML(msg.perguntaOrigem || "")}" data-veredito="${escaparHTML(msg.meta.fato_real || "INCONCLUSIVO")}">${htmlCard}</div>`
                 );
             } else {
                 chatContainer.insertAdjacentHTML(
@@ -532,7 +530,6 @@ async function enviarFeedbackModelo(btnClicado, idCard, avaliacao) {
     const afirmacao = card.getAttribute("data-afirmacao") || "";
     const veredito = card.getAttribute("data-veredito") || "";
 
-    // Desabilita ambos os botões do card para evitar cliques duplicados
     const botoes = card.querySelectorAll(".btn-feedback");
     botoes.forEach((b) => (b.disabled = true));
 
@@ -546,7 +543,6 @@ async function enviarFeedbackModelo(btnClicado, idCard, avaliacao) {
         btnClicado.style.color = "#B91C1C";
     }
 
-    // Salva no estado local da conversa
     const ativa = obterConversaAtiva();
     if (ativa) {
         const msgAlvo = ativa.mensagens.find((m) => m.perguntaOrigem === afirmacao && m.role === "assistant");
@@ -556,7 +552,6 @@ async function enviarFeedbackModelo(btnClicado, idCard, avaliacao) {
         }
     }
 
-    // Envia de forma anônima para o FastAPI registrar no dataset_coletado_evento.csv
     try {
         await fetch(`${API_BASE_URL}/feedback`, {
             method: "POST",
@@ -573,8 +568,16 @@ async function enviarFeedbackModelo(btnClicado, idCard, avaliacao) {
 }
 
 // ==========================================================================
-// 9. GERAÇÃO DE LAUDO PERICIAL EM PDF (IMPRESSÃO LIMPA A4)
+// 9. GERAÇÃO DE LAUDO TÉCNICO EM PDF — PADRÃO ABNT (NBR 14724 / NBR 6023)
 // ==========================================================================
+function formatarDataABNT(data = new Date()) {
+    const meses = ["jan.", "fev.", "mar.", "abr.", "maio", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+    const dia = String(data.getDate()).padStart(2, "0");
+    const mes = meses[data.getMonth()];
+    const ano = data.getFullYear();
+    return `${dia} ${mes} ${ano}`;
+}
+
 function baixarLaudoPDF(idMensagem) {
     const elementoOriginal = document.getElementById(idMensagem);
     if (!elementoOriginal) {
@@ -582,20 +585,58 @@ function baixarLaudoPDF(idMensagem) {
         return;
     }
 
-    const clone = elementoOriginal.cloneNode(true);
+    salvarNomePesquisador();
+    const solicitante = usuarioAtual !== "Visitante" ? usuarioAtual : "Não identificado (Consulta Pública)";
 
-    const areaAcoes = clone.querySelector(".feedback-area");
-    if (areaAcoes) areaAcoes.remove();
+    const agora = new Date();
+    const dataExtenso = agora.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+    const dataAcessoABNT = formatarDataABNT(agora);
+    const protocolo = `VAI-${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, "0")}${String(agora.getDate()).padStart(2, "0")}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    clone.querySelectorAll("details").forEach((d) => d.setAttribute("open", "true"));
+    // Extrai os dados estruturados do card
+    const afirmacaoOriginal = elementoOriginal.getAttribute("data-afirmacao") || "Afirmação submetida no painel de verificação.";
+    const vereditoFinal = elementoOriginal.getAttribute("data-veredito") || "INCONCLUSIVO";
 
-    const dataAtual = new Date().toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-    });
+    const divVeredito = elementoOriginal.querySelector(".texto-veredito");
+    const textoBruto = divVeredito ? divVeredito.innerText : "";
+    const paragrafosHTML = textoBruto
+        .split(/\n+/)
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0)
+        .map((p) => `<p class="abnt-paragrafo">${escaparHTML(p)}</p>`)
+        .join("");
+
+    // Extrai estatísticas do SVM
+    const stats = elementoOriginal.querySelectorAll(".termometro .stat-item strong");
+    const pVerdade = stats[0] ? stats[0].innerText.trim() : "50%";
+    const pFalso = stats[1] ? stats[1].innerText.trim() : "50%";
+    const totalFontes = stats[2] ? stats[2].innerText.trim() : "0";
+
+    // Extrai eventual nota de divergência do SVM
+    const alertaDiv = elementoOriginal.querySelector(".alerta-divergencia");
+    const notaDivergenciaHTML = alertaDiv
+        ? `<p class="abnt-paragrafo"><strong>Nota de Auditoria Algorítmica:</strong> ${escaparHTML(alertaDiv.innerText.replace("Divergência Detectada no Filtro SVM:", "").trim())}</p>`
+        : "";
+
+    // Formata referências bibliográficas no padrão ABNT NBR 6023
+    const linksFontes = elementoOriginal.querySelectorAll(".lista-fontes li a");
+    let referenciasHTML = `<p class="abnt-referencia">Nenhuma fonte jornalística externa indexada para esta consulta.</p>`;
+
+    if (linksFontes.length > 0) {
+        referenciasHTML = Array.from(linksFontes).map((a) => {
+            const titulo = escaparHTML(a.innerText.trim());
+            const url = escaparHTML(a.getAttribute("href") || "");
+            let dominio = "PORTAL DE NOTÍCIAS";
+            try {
+                if (url.startsWith("http")) {
+                    dominio = new URL(url).hostname.replace(/^www\./, "").toUpperCase();
+                }
+            } catch {
+                dominio = "PORTAL DE NOTÍCIAS";
+            }
+            return `<p class="abnt-referencia">${dominio}. <strong>${titulo}</strong>. Disponível em: &lt;${url}&gt;. Acesso em: ${dataAcessoABNT}.</p>`;
+        }).join("");
+    }
 
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
@@ -613,114 +654,163 @@ function baixarLaudoPDF(idMensagem) {
         <html lang="pt-BR">
         <head>
             <meta charset="UTF-8">
-            <title>Laudo_VerificaAI_${escaparHTML(usuarioAtual)}</title>
+            <title>Laudo_ABNT_VerificaAI_${escaparHTML(solicitante)}</title>
             <style>
-                @page { size: A4; margin: 18mm; }
+                /* Padrão ABNT NBR 14724: Papel A4, margens 3cm (sup/esq) e 2cm (inf/dir) */
+                @page {
+                    size: A4 portrait;
+                    margin: 3cm 2cm 2cm 3cm;
+                }
                 body {
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                    color: #0f172a;
+                    font-family: "Times New Roman", Times, Arial, serif;
+                    font-size: 12pt;
+                    line-height: 1.5;
+                    color: #000000;
                     background: #ffffff;
-                    line-height: 1.6;
                     margin: 0;
                     padding: 0;
                 }
-                .cabecalho-laudo {
-                    border-bottom: 2px solid #0B2545;
-                    padding-bottom: 12px;
-                    margin-bottom: 20px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-end;
-                }
-                .cabecalho-laudo h1 {
-                    margin: 0;
-                    font-size: 20px;
-                    color: #0B2545;
-                    letter-spacing: 0.5px;
-                }
-                .cabecalho-laudo p {
-                    margin: 4px 0 0 0;
-                    font-size: 11px;
-                    color: #475569;
-                }
-                .selo-fato {
-                    display: inline-block;
-                    padding: 6px 12px;
-                    border-radius: 6px;
+                .abnt-cabecalho {
+                    text-align: center;
                     font-weight: bold;
-                    font-size: 13px;
-                    margin-bottom: 14px;
-                    border: 1px solid #cbd5e1;
+                    text-transform: uppercase;
+                    line-height: 1.3;
+                    margin-bottom: 1.2cm;
                 }
-                .selo-fato.verdadeiro { background: #dcfce7; color: #166534; border-color: #16a34a; }
-                .selo-fato.falso { background: #fee2e2; color: #991b1b; border-color: #dc2626; }
-                .selo-fato.inconclusivo { background: #fef3c7; color: #92400e; border-color: #d97706; }
-                .texto-veredito {
-                    font-size: 14px;
+                .abnt-titulo {
+                    text-align: center;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    font-size: 12pt;
+                    margin: 0.8cm 0;
+                }
+                .abnt-metadados {
+                    border-top: 1px solid #000000;
+                    border-bottom: 1px solid #000000;
+                    padding: 8px 0;
+                    margin-bottom: 1cm;
+                    font-size: 11pt;
+                    line-height: 1.4;
+                }
+                .abnt-secao {
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    font-size: 12pt;
+                    margin-top: 0.9cm;
+                    margin-bottom: 0.4cm;
+                    page-break-after: avoid;
+                }
+                .abnt-paragrafo {
                     text-align: justify;
-                    margin-bottom: 18px;
+                    text-indent: 1.25cm;
+                    margin-top: 0;
+                    margin-bottom: 0.35cm;
                 }
-                details.painel-transparencia {
-                    border: 1px solid #cbd5e1;
-                    border-radius: 8px;
-                    padding: 12px;
-                    background: #f8fafc;
+                /* Citação direta com mais de 3 linhas (recuo de 4cm, fonte 10pt, espaço simples) */
+                .abnt-citacao-recuada {
+                    margin-left: 4cm;
+                    font-size: 10pt;
+                    line-height: 1.15;
+                    text-align: justify;
+                    margin-top: 0.4cm;
+                    margin-bottom: 0.6cm;
+                }
+                /* Tabela padrão IBGE/ABNT (sem linhas verticais nas bordas) */
+                .abnt-tabela {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 0.5cm 0 0.7cm 0;
+                    font-size: 10pt;
+                    line-height: 1.2;
                     page-break-inside: avoid;
                 }
-                details.painel-transparencia summary {
+                .abnt-tabela th,
+                .abnt-tabela td {
+                    border-top: 1px solid #000000;
+                    border-bottom: 1px solid #000000;
+                    padding: 6px 8px;
+                    text-align: left;
+                }
+                .abnt-tabela th {
                     font-weight: bold;
-                    color: #0f172a;
-                    margin-bottom: 10px;
-                    list-style: none;
                 }
-                .termometro {
-                    display: flex;
-                    justify-content: space-between;
-                    gap: 10px;
-                    background: #ffffff;
-                    border: 1px solid #e2e8f0;
-                    padding: 10px;
-                    border-radius: 6px;
-                    margin-bottom: 10px;
+                /* Referências NBR 6023 (alinhadas à esquerda, espaço simples, fonte 10pt) */
+                .abnt-referencia {
+                    text-align: left;
+                    font-size: 10pt;
+                    line-height: 1.15;
+                    margin-top: 0;
+                    margin-bottom: 0.35cm;
+                    word-break: break-word;
                 }
-                .stat-item span { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; }
-                .stat-item strong { font-size: 15px; }
-                .alerta-divergencia {
-                    padding: 10px;
-                    background: #fffbeb;
-                    border-left: 3px solid #f59e0b;
-                    font-size: 12px;
-                    color: #78350f;
-                    margin-bottom: 10px;
-                }
-                .fontes-box { font-size: 12px; }
-                .lista-fontes { margin: 6px 0 0 18px; padding: 0; }
-                .lista-fontes li { margin-bottom: 4px; }
-                .lista-fontes a { color: #1D4ED8; text-decoration: none; word-break: break-all; }
-                .rodape-laudo {
-                    margin-top: 25px;
-                    padding-top: 10px;
-                    border-top: 1px solid #e2e8f0;
-                    font-size: 10px;
-                    color: #64748b;
+                .abnt-assinatura {
+                    margin-top: 1.8cm;
                     text-align: center;
+                    font-size: 11pt;
+                    line-height: 1.3;
+                    page-break-inside: avoid;
                 }
             </style>
         </head>
         <body>
-            <div class="cabecalho-laudo">
-                <div>
-                    <h1>VERIFICA.AI — LAUDO DE CHECAGEM</h1>
-                    <p>Arquitetura Híbrida: Análise Contextual + Machine Learning (SVM) + Busca Web</p>
-                </div>
-                <div style="text-align: right;">
-                    <p><strong>Pesquisador:</strong> ${escaparHTML(usuarioAtual)}</p>
-                    <p><strong>Emissão:</strong> ${dataAtual}</p>
-                </div>
+            <div class="abnt-cabecalho">
+                <div>PLATAFORMA VERIFICA.AI — AUDITORIA FACTUAL E CHECAGEM DE DADOS</div>
+                <div>SISTEMA HÍBRIDO DE ANÁLISE CONTEXTUAL E APRENDIZADO DE MÁQUINA</div>
             </div>
-            ${clone.innerHTML}
-            <div class="rodape-laudo">
-                Documento gerado pelo sistema VERIFICA.AI. Os índices estatísticos refletem a análise combinada do modelo SVM e das fontes jornalísticas consultadas na data de emissão.
+
+            <div class="abnt-titulo">LAUDO TÉCNICO DE VERIFICAÇÃO FACTUAL</div>
+
+            <div class="abnt-metadados">
+                <div><strong>Protocolo:</strong> ${protocolo}</div>
+                <div><strong>Solicitante:</strong> ${escaparHTML(solicitante)}</div>
+                <div><strong>Data de Emissão:</strong> ${dataExtenso}</div>
+                <div><strong>Classificação Final:</strong> ${escaparHTML(vereditoFinal)}</div>
+            </div>
+
+            <div class="abnt-secao">1 OBJETO DA ANÁLISE</div>
+            <div class="abnt-citacao-recuada">
+                “${escaparHTML(afirmacaoOriginal)}”
+            </div>
+
+            <div class="abnt-secao">2 INDICADORES ESTATÍSTICOS (MODELO SVM + TF-IDF)</div>
+            <table class="abnt-tabela">
+                <thead>
+                    <tr>
+                        <th>Parâmetro Avaliado</th>
+                        <th>Resultado Obtido</th>
+                        <th>Método Aplicado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Índice de Veracidade Lexical</td>
+                        <td>${escaparHTML(pVerdade)}</td>
+                        <td>Classificador Support Vector Machine (SVM)</td>
+                    </tr>
+                    <tr>
+                        <td>Índice de Padrão de Desinformação</td>
+                        <td>${escaparHTML(pFalso)}</td>
+                        <td>Vetorização TF-IDF</td>
+                    </tr>
+                    <tr>
+                        <td>Fontes Jornalísticas Cruzadas</td>
+                        <td>${escaparHTML(totalFontes)} veículo(s)</td>
+                        <td>Busca automatizada em portais indexados</td>
+                    </tr>
+                </tbody>
+            </table>
+            ${notaDivergenciaHTML}
+
+            <div class="abnt-secao">3 PARECER TÉCNICO E CONTEXTUALIZAÇÃO</div>
+            ${paragrafosHTML}
+
+            <div class="abnt-secao">REFERÊNCIAS</div>
+            ${referenciasHTML}
+
+            <div class="abnt-assinatura">
+                ____________________________________________________<br>
+                <strong>VERIFICA.AI — Motor de Auditoria Factual</strong><br>
+                Documento gerado eletronicamente em ${dataExtenso}.
             </div>
         </body>
         </html>
@@ -825,10 +915,8 @@ async function enviarMensagem() {
     const ativa = obterConversaAtiva();
     if (!ativa) return;
 
-    // Bloqueia imediatamente novos envios até a resposta e a digitação terminarem
     definirEstadoEnvio(true);
 
-    // Atualiza o título da conversa na barra lateral com a primeira pergunta
     if (ativa.mensagens.length === 0) {
         ativa.titulo = texto.length > 42 ? texto.substring(0, 42) + "..." : texto;
     }
@@ -889,7 +977,6 @@ async function enviarMensagem() {
         const cardMensagem = document.getElementById(idTemp);
         cardMensagem.classList.remove("pensando");
 
-        // Guarda atributos no card para o envio de feedback anônimo
         cardMensagem.setAttribute("data-afirmacao", texto);
         cardMensagem.setAttribute("data-veredito", dados.fato_real || "INCONCLUSIVO");
 
@@ -902,12 +989,10 @@ async function enviarMensagem() {
             feedbackEnviado: null
         });
 
-        // Limita a 30 mensagens por conversa para não pesar o aparelho
         ativa.mensagens = ativa.mensagens.slice(-30);
         salvarEstadoConversas();
         renderizarListaConversas();
 
-        // Só destrava o envio depois que a animação de digitação terminar
         const finalizarResposta = () => {
             adicionarRespostasRapidas();
             chatContainer.scrollTop = chatContainer.scrollHeight;
