@@ -11,7 +11,7 @@ import joblib
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -24,7 +24,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("VERIFICA_AI_ENTERPRISE")
 
-app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="23.0")
+app = FastAPI(title="VERIFICA.AI - Agente Híbrido com Groq API", version="24.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,28 +47,54 @@ MODELO_GROQ = "openai/gpt-oss-120b"
 MODELO_GROQ_BACKUP = "llama-3.3-70b-versatile"
 
 
-def extrair_tempo_espera_groq(erro_texto: str) -> str:
-    """Lê 'Please try again in XmYs' da mensagem de erro da Groq e converte para português."""
-    match = re.search(r"try again in\s+(?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", str(erro_texto))
-    if not match:
-        return "alguns minutos"
+class LimiteTokensGroqError(Exception):
+    """Exceção personalizada que carrega o tempo exato de retorno em segundos e formatado."""
+    def __init__(self, mensagem_original: str, tempo_formatado: str, segundos_totais: float):
+        super().__init__(mensagem_original)
+        self.tempo_formatado = tempo_formatado
+        self.segundos_totais = segundos_totais
 
-    horas, minutos, segundos = match.groups()
-    partes = []
-    if horas and int(horas) > 0:
-        partes.append(f"{int(horas)} hora(s)")
-    if minutos and int(minutos) > 0:
-        partes.append(f"{int(minutos)} minuto(s)")
-    if segundos:
-        seg_int = max(1, round(float(segundos)))
-        if not partes:  # Mostra segundos apenas se for menos de 1 minuto
+
+def extrair_tempo_espera_groq(erro_texto: str) -> Tuple[str, float]:
+    """Lê 'Please try again in XhYmZs' ou 'Xms' da Groq e retorna (texto_legivel, total_segundos)."""
+    texto = str(erro_texto)
+
+    # Caso 1: Formato padrão (ex: 6m40.032s, 1h12m5s, 45.2s)
+    match = re.search(r"try again in\s+(?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", texto)
+    if match:
+        horas, minutos, segundos = match.groups()
+        h = int(horas) if horas else 0
+        m = int(minutos) if minutos else 0
+        s = float(segundos) if segundos else 0.0
+        total_segundos = (h * 3600) + (m * 60) + s
+
+        # Arredonda segundos para cima nos minutos se houver fração relevante
+        if h == 0 and m > 0 and s >= 30:
+            m += 1
+
+        partes = []
+        if h > 0:
+            partes.append(f"{h} hora(s)")
+        if m > 0:
+            partes.append(f"{m} minuto(s)")
+        if not partes:
+            seg_int = max(1, round(s))
             partes.append(f"{seg_int} segundo(s)")
 
-    return " e ".join(partes) if partes else "alguns minutos"
+        return " e ".join(partes), total_segundos
+
+    # Caso 2: Formato em milissegundos (ex: 450ms)
+    match_ms = re.search(r"try again in\s+([\d.]+)ms", texto)
+    if match_ms:
+        ms = float(match_ms.group(1))
+        seg_int = max(1, round(ms / 1000.0))
+        return f"{seg_int} segundo(s)", float(seg_int)
+
+    return "cerca de 1 a 5 minutos", 60.0
 
 
 def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float):
-    """Tenta chave principal -> chave reserva -> modelo secundário antes de entrar em contingência."""
+    """Tenta chave principal -> chave reserva -> modelo secundário e guarda o tempo real de espera."""
     tentativas = []
     if client_principal:
         tentativas.append((client_principal, MODELO_GROQ, "principal"))
@@ -80,6 +106,9 @@ def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float
         tentativas.append((client_reserva, MODELO_GROQ_BACKUP, "reserva_backup"))
 
     ultimo_erro = None
+    maior_tempo_segundos = -1.0
+    melhor_tempo_formatado = "cerca de 1 a 5 minutos"
+
     for cliente, modelo, origem_chave in tentativas:
         try:
             return cliente.chat.completions.create(
@@ -90,9 +119,21 @@ def chamar_groq_com_fallback(mensagens: List[Dict[str, str]], temperatura: float
             )
         except Exception as erro:
             ultimo_erro = erro
+            tempo_fmt, tempo_seg = extrair_tempo_espera_groq(str(erro))
+            # Prioriza tempos válidos encontrados (evita que um erro genérico apague os minutos reais)
+            if "try again in" in str(erro) and tempo_seg > maior_tempo_segundos:
+                maior_tempo_segundos = tempo_seg
+                melhor_tempo_formatado = tempo_fmt
             logger.warning(f"Falha na rota [{origem_chave} | {modelo}]: {erro}. Tentando próxima rota...")
 
-    raise ultimo_erro or RuntimeError("Nenhum token da Groq (principal ou reserva) está configurado.")
+    if ultimo_erro:
+        raise LimiteTokensGroqError(
+            str(ultimo_erro),
+            melhor_tempo_formatado,
+            max(maior_tempo_segundos, 60.0),
+        )
+
+    raise RuntimeError("Nenhum token da Groq (principal ou reserva) está configurado.")
 
 
 instrucoes_triagem = """
@@ -111,7 +152,7 @@ Você é o assistente virtual do VERIFICA.AI, uma plataforma brasileira gratuita
 Analise a mensagem atual considerando o histórico da conversa e classifique em exatamente uma das três rotas abaixo:
 
 ROTA A — DIÁLOGO, SAUDAÇÃO OU DÚVIDA SOBRE O SISTEMA ("status": "conversa"):
-- Acione quando o usuário disser "oi", "olá", agradecer, perguntar quem criou o sistema, como o SVM funciona, ou pedir resumo/revisão do histórico.
+- Acione quando o usuário disser "oi", "olá", agradecer, perguntar quem criou o sistema, como o SVM funciona, questionar sobre o aviso de capacidade/limite de consultas, ou pedir resumo/revisão do histórico.
 - NÃO acione a busca web nem o SVM.
 
 ROTA B — AFIRMAÇÃO FACTUAL, BOATO OU MANCHETE ("status": "pronto"):
@@ -286,7 +327,7 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
         except Exception as e:
             logger.error(f"Erro ao rodar predição do modelo SVM local: {e}")
 
-    # Envia no máximo 5 notícias resumidas para economizar tokens e evitar limite por minuto da Groq
+    # Envia no máximo 5 notícias resumidas para economizar tokens e evitar limite por minuto
     noticias_resumidas = [
         {
             "titulo": n.get("titulo", ""),
@@ -322,29 +363,38 @@ def executar_pipeline_completo(frase_alvo: str, historico: List[Dict[str, str]])
 
     except Exception as e:
         logger.error(f"Erro na Groq API (resposta final): {e}")
-        tempo_retorno = extrair_tempo_espera_groq(str(e))
+        if isinstance(e, LimiteTokensGroqError):
+            tempo_retorno = e.tempo_formatado
+        else:
+            tempo_retorno, _ = extrair_tempo_espera_groq(str(e))
+
         aviso_limite = (
             f"Aviso de Capacidade: O limite temporário de consultas da inteligência artificial foi atingido. "
-            f"A análise completa voltará ao normal em aproximadamente {tempo_retorno}."
+            f"A análise dissertativa voltará ao normal em aproximadamente {tempo_retorno}.\n\n"
+            f"Por que isso acontece? Para manter o VERIFICA.AI gratuito e aberto ao público durante o evento, "
+            f"utilizamos uma cota limitada de processamento por minuto e por dia. Quando muitos visitantes realizam "
+            f"checagens seguidas, o módulo de redação faz essa pausa automática e o filtro estatístico é ocultado "
+            f"para evitar interpretações sem contexto."
         )
 
         if noticias:
-            manchetes = "; ".join([n.get("titulo", "") for n in noticias[:3] if n.get("titulo")])
+            lista_fontes = "\n".join(
+                [f"- {n.get('titulo', 'Fonte sem título')} ({n.get('fonte', 'Portal de notícias')})" for n in noticias[:5] if n.get("titulo")]
+            )
             texto_final = (
                 f"{aviso_limite}\n\n"
-                f"Enquanto isso, o filtro estatístico local (SVM) apontou {p_falso}% de semelhança com padrões "
-                f"de desinformação e {p_verdade}% de veracidade. Na busca em tempo real, foram localizadas "
-                f"{len(noticias)} reportagens relacionadas, incluindo: {manchetes}."
+                f"Confira abaixo as principais reportagens encontradas na busca em tempo real (e acesse os links completos na aba de fontes logo abaixo):\n\n"
+                f"{lista_fontes}"
             )
         else:
             texto_final = (
                 f"{aviso_limite}\n\n"
-                f"Enquanto isso, o filtro estatístico local (SVM) apontou {p_falso}% de alerta para padrões "
-                f"de desinformação, mas não foram encontradas reportagens suficientes na busca."
+                f"Além disso, não foram localizadas reportagens recentes sobre este assunto na busca em tempo real."
             )
+
         modelo_errou = False
         fato_real = "INCONCLUSIVO"
-        motivo_erro = f"Limite de requisições atingido. Retorno previsto em {tempo_retorno}."
+        motivo_erro = f"Análise dissertativa pausada por limite de capacidade. Retorno previsto em {tempo_retorno}."
 
     return {
         "origem": "agente_verificacao",
@@ -367,7 +417,7 @@ def conversar_com_agente(req: RequisicaoChat):
 
     texto_lower = req.mensagem.lower().strip()
 
-    # 0. Resposta rápida para saudações simples (economiza cota de tokens da Groq)
+    # 0. Resposta rápida para saudações simples (economiza cota de tokens)
     saudacoes = ["oi", "ola", "olá", "bom dia", "boa tarde", "boa noite", "eai", "e ai", "ol\\"]
     if texto_lower.rstrip("!?.,") in saudacoes:
         return {
@@ -375,6 +425,29 @@ def conversar_com_agente(req: RequisicaoChat):
             "texto": (
                 "Olá! Sou o VERIFICA.AI. Cole aqui qualquer notícia, manchete ou corrente "
                 "de internet que você queira checar se é verdadeira ou falsa."
+            ),
+        }
+
+    # 0.5. Resposta rápida caso o visitante questione o aviso de capacidade / falta de tokens
+    perguntas_capacidade = [
+        "aviso de capacidade", "limite temporario", "limite temporário",
+        "acabou os tokens", "acabaram os tokens", "sem tokens", "faltou token",
+        "por que nao deu", "porque nao deu", "por que não deu", "porque não deu",
+        "por que nao gerou", "porque nao gerou", "por que não gerou", "porque não gerou",
+        "por que pausou", "porque pausou", "por que inconclusivo", "porque inconclusivo",
+        "o que sao tokens", "o que são tokens", "quanto tempo volta"
+    ]
+    if any(p in texto_lower for p in perguntas_capacidade) and len(texto_lower) < 90:
+        return {
+            "origem": "agente_dialogo",
+            "texto": (
+                "O VERIFICA.AI funciona em duas etapas: primeiro fazemos a busca das notícias reais na internet "
+                "e, depois, enviamos essas reportagens para um servidor de linguagem escrever o parecer explicativo.\n\n"
+                "Para manter a plataforma gratuita durante a apresentação, esse servidor possui uma cota máxima de "
+                "processamento (chamada de tokens) por minuto e por dia. Quando muitas pessoas usam o sistema ao mesmo "
+                "tempo, a cota entra em pausa por alguns minutos até ser liberada novamente.\n\n"
+                "Durante essa pausa, nós ocultamos de propósito a nota isolada do filtro estatístico (SVM) para não "
+                "gerar conclusões precipitadas sem a leitura das notícias, mostrando apenas as reportagens encontradas."
             ),
         }
 
@@ -455,9 +528,7 @@ def conversar_com_agente(req: RequisicaoChat):
 
     except Exception as e:
         logger.error(f"Erro na Groq API (triagem): {e}")
-        resultado_fallback = executar_pipeline_completo(req.mensagem, req.historico)
-        resultado_fallback["texto"] = f"[Modo de Contingência] {resultado_fallback['texto']}"
-        return resultado_fallback
+        return executar_pipeline_completo(req.mensagem, req.historico)
 
 
 # ==========================================================================
